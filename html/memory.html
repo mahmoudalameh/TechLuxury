@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>قلادة الذكريات | كرت ذكريات خاص</title>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CSS File -->
+    <link rel="stylesheet" href="../css/memory.css">
+</head>
+<body>
+
+    <div class="bg-glow"></div>
+
+    <main class="memory-card-container">
+
+        <!-- ==========================================
+             الحالة الأولى: نموذج إضافة وتنسيق الكرت والمناسبات (لأول مرة)
+             ========================================== -->
+        <section id="setupSection" class="card-box setup-box">
+            <header class="box-header">
+                <div class="badge-nfc"><i class="fa-solid fa-sparkles"></i> قلادة ذكية جديدة</div>
+                <h2>اصنع ألبوم ذكرياتك ❤️</h2>
+                <p>قم بتهيئة القلادة، أضف سؤال الأمان، والمناسبات والأغنية الخاصة لتظهر فور تقريب الهاتف منها.</p>
+            </header>
+
+            <form id="memoryForm">
+
+                <!-- 1. البيانات العامة للكرت -->
+                <div class="form-section-title">
+                    <i class="fa-solid fa-sliders"></i> البيانات العامة للكرت
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fa-solid fa-heading"></i> عنوان الكرت الرئيسي</label>
+                    <input type="text" name="card_title" placeholder="مثال: ذكرياتنا الجميلة، عالمنا الخاص..." required>
+                </div>
+
+                <!-- 2. حماية الكرت (سؤال الأمان بكلمة السر) -->
+                <div class="form-section-title">
+                    <i class="fa-solid fa-shield-halved"></i> حماية الكرت (سؤال الأمان)
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fa-solid fa-list-check"></i> اختر نوع السؤال</label>
+                    <select id="questionTypeSelect" required style="width: 100%; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1);">
+                        <option value="تاريخ زواج" style="color:#000;">تاريخ زواج</option>
+                        <option value="تاريخ ميلاد" style="color:#000;">تاريخ ميلاد</option>
+                        <option value="أكلة مفضلة" style="color:#000;">أكلة مفضلة</option>
+                        <option value="مكان التقينا فيه" style="color:#000;">مكان التقينا فيه</option>
+                        <option value="سؤال آخر" style="color:#000;">سؤال مخصص (أكتبه بنفسك)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fa-solid fa-question"></i> نص السؤال (يظهر للمستخدم عند فتح الرابط)</label>
+                    <input type="text" id="securityQuestionInput" name="security_question" value="ما هو تاريخ زواجنا؟" placeholder="مثال: ما هو تاريخ زواجنا؟" required>
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fa-solid fa-key"></i> الإجابة الصحيحة (بمثابة كلمة السر للدخول)</label>
+                    <input type="text" name="security_answer" placeholder="مثال: 2024/05/20 أو المنسف..." required>
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fa-solid fa-music"></i> رفع الأغنية المرافقة (تغطي الكرت)</label>
+                    <div class="file-dropzone audio-dropzone">
+                        <input type="file" name="bg_audio" accept="audio/*" required>
+                        <i class="fa-solid fa-file-audio"></i>
+                        <span>اختر ملف الصوت (MP3) لتشغيله تلقائياً</span>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <!-- 3. قائمة المناسبات (دعم إضافة مناسبات متعددة) -->
+                <div class="form-section-title">
+                    <i class="fa-solid fa-layer-group"></i> المناسبات والذكريات
+                </div>
+
+                <div id="occasionsContainer">
+                    <!-- المناسبة الأولى (افتراضية) -->
+                    <div class="occasion-item-box" data-index="0">
+                        <div class="occasion-header">
+                            <span><i class="fa-solid fa-heart"></i> المناسبة #1</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-tag"></i> عنوان المناسبة</label>
+                            <input type="text" class="occ-title" placeholder="مثال: رحلة دبي، عيد ميلاد 2026..." required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-align-right"></i> رسالة / نص الذكرى لهذا الحدث</label>
+                            <textarea class="occ-message" rows="3" placeholder="اكتب مشاعرك وذكرياتك لهذا الحدث..." required></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-images"></i> صور المناسبة</label>
+                            <div class="file-dropzone">
+                                <input type="file" class="occ-photos" multiple accept="image/*" required>
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span>اضغط هنا لرفع صور هذه المناسبة</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-video"></i> رفع فيديوهات المناسبة (من جهازك/هاتفك)</label>
+                            <div class="file-dropzone">
+                                <input type="file" class="occ-videos" multiple accept="video/*">
+                                <i class="fa-solid fa-file-video"></i>
+                                <span>اضغط لرفع فيديو أو أكثر (MP4 / MOV)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- زر إضافة مناسبة أخرى -->
+                <button type="button" id="addOccasionBtn" class="btn-secondary">
+                    <i class="fa-solid fa-folder-plus"></i> إضافة مناسبة أخرى +
+                </button>
+
+                <!-- زر الحفظ النهائي -->
+                <button type="submit" class="btn-submit" id="submitBtn">
+                    <i class="fa-solid fa-floppy-disk"></i> حفظ الذكريات في القلادة
+                </button>
+            </form>
+        </section>
+
+
+        <!-- ==========================================
+             الحالة الثانية: نجاح الحفظ وبرمجة الـ NFC
+             ========================================== -->
+        <section id="successSection" class="card-box success-box" style="display: none; text-align: center;">
+            <header class="box-header">
+                <div class="badge-nfc"><i class="fa-solid fa-circle-check"></i> تم الحفظ بنجاح!</div>
+                <h2>قلادتك الذكية جاهزة 🎉</h2>
+                <p>قم بنسخ الرابط أدناه وكتابته على شريحة الـ NFC الخاصة بالقلادة لتفتح الذكريات فور تقريب الهاتف منها.</p>
+            </header>
+
+            <div class="form-group">
+                <input type="text" id="generatedCardUrl" readonly style="text-align: center; font-weight: bold; color: var(--gold); dir: ltr;">
+            </div>
+
+            <button type="button" class="btn-submit" id="copyUrlBtn">
+                <i class="fa-solid fa-copy"></i> نسخ رابط القلادة
+            </button>
+
+            <button type="button" class="btn-submit" id="goToCardBtn" style="background: rgba(255, 255, 255, 0.1); color: var(--text-main); margin-top: 10px;">
+                <i class="fa-solid fa-eye"></i> استعراض الكرت الآن
+            </button>
+        </section>
+
+
+        <!-- ==========================================
+             الحالة الثالثة: شاشة القفل وسؤال الأمان (تظهر فور فتح الرابط)
+             ========================================== -->
+        <section id="lockSection" class="card-box lock-box" style="display: none; text-align: center;">
+            <header class="box-header">
+                <div class="badge-nfc"><i class="fa-solid fa-lock"></i> كرت محمي بسؤال أمان</div>
+                <h2 id="lockCardTitle">ذكريات خاصة 🔒</h2>
+                <p>الرجاء الإجابة عن السؤال التالي للتحقق ودخول ألبوم الذكريات:</p>
+            </header>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label id="displaySecurityQuestion" style="font-size: 1.1rem; color: var(--gold); font-weight: bold; margin-bottom: 15px; display: block;">
+                    --
+                </label>
+                <input type="text" id="userAnswerInput" placeholder="أدخل الإجابة هنا..." style="text-align: center; font-size: 1.1rem;" required>
+            </div>
+
+            <p id="lockErrorMsg" style="color: #ef4444; display: none; font-size: 0.9rem; margin-top: -10px; margin-bottom: 10px;">
+                <i class="fa-solid fa-circle-exclamation"></i> الإجابة غير صحيحة، حاول مجدداً!
+            </p>
+
+            <button type="button" class="btn-submit" id="unlockBtn">
+                <i class="fa-solid fa-key"></i> فتح الذكريات
+            </button>
+        </section>
+
+
+        <!-- ==========================================
+             الحالة الرابعة: صفحة عرض الذكريات (بعد إدخال الإجابة الصحيحة)
+             ========================================== -->
+        <section id="displaySection" class="card-box display-box" style="display: none;">
+
+            <header class="box-header">
+                <div class="badge-nfc"><i class="fa-solid fa-wifi"></i> تم الاتصال عبر القلادة</div>
+                <h1 id="viewMainTitle" class="memory-title">--</h1>
+            </header>
+
+            <!-- مشغل الأغنية الرئيسية -->
+            <div class="audio-player-box" id="audioPlayerContainer">
+                <button class="btn-audio" id="toggleAudioBtn">
+                    <i class="fa-solid fa-compact-disc fa-spin" id="audioIcon"></i>
+                    <span id="audioText">إيقاف الموسيقى المرافقة</span>
+                </button>
+                <audio id="bgAudio" loop preload="auto"></audio>
+            </div>
+
+            <!-- قائمة أزرار التنقل بين المناسبات -->
+            <div id="occasionsTabs" class="occasions-tabs-container"></div>
+
+            <!-- منطقة عرض تفاصيل المناسبة المحددة -->
+            <div id="occasionContentArea" class="occasion-content-card">
+
+                <h2 id="occTitleDisplay" class="occ-display-title">--</h2>
+
+                <!-- سلايدر الصور لمناسبة معينة -->
+                <div class="gallery-wrapper" id="galleryWrapper">
+                    <div class="slider-container">
+                        <div class="slider-track" id="sliderTrack"></div>
+                        <button class="slider-btn prev" id="prevBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button class="slider-btn next" id="nextBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                    </div>
+                </div>
+
+                <!-- رسالة المناسبة النصية -->
+                <div class="note-card">
+                    <i class="fa-solid fa-quote-right quote-icon"></i>
+                    <p id="occMessageDisplay" class="note-text">--</p>
+                </div>
+
+                <!-- مشغلات الفيديو المحملة من الجهاز -->
+                <div id="videosContainerDisplay" class="videos-list-container"></div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- استدعاء ملف الجافاسكريبت كـ Module لدعم Firebase -->
+    <script type="module" src="../js/memory.js"></script>
+</body>
+</html>
