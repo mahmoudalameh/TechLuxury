@@ -2,27 +2,30 @@
 // 1. استيراد حزم Firebase (v10+ Modular SDK)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import {
-    getFirestore, collection, addDoc, doc, getDoc, serverTimestamp
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+import { 
+    getFirestore, collection, addDoc, doc, getDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import {
-    getStorage, ref, uploadBytes, getDownloadURL
+import { 
+    getStorage, ref, uploadBytes, getDownloadURL 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 // ==========================================
-// 2. إعدادات مشروع Firebase
+// 2. إعدادات مشروع Firebase (TechLuxury)
 // ==========================================
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
+  authDomain: "techluxury-4b854.firebaseapp.com",
+  projectId: "techluxury-4b854",
+  storageBucket: "techluxury-4b854.firebasestorage.app",
+  messagingSenderId: "1043863547919",
+  appId: "1:1043863547919:web:46bd7c74f0fbeb2702b37a",
+  measurementId: "G-EZJWPY4Q2Z"
 };
 
-// تهيئة Firebase
+// تهيئة خدمات Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
