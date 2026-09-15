@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة ذكرياتي | إدارة القلادات</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: #141b2d;
+            --accent-gold: #e2b714;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #2e374a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); padding: 20px; }
+
+        .container { max-width: 900px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .claim-card-section {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        .claim-form { display: flex; gap: 12px; margin-top: 15px; }
+        .claim-form input {
+            flex: 1;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+        }
+
+        .btn-claim {
+            background: var(--accent-gold);
+            color: #000;
+            font-weight: 700;
+            border: none;
+            padding: 0 24px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .my-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .my-card h3 { color: var(--accent-gold); margin-bottom: 10px; }
+        .my-card p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; }
+
+        .btn-edit-memory {
+            display: block;
+            text-align: center;
+            background: #3b82f6;
+            color: #fff;
+            text-decoration: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div>
+                <h2>أهلاً بك في ذكرياتي 👋</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem;" id="userEmail">جاري التحميل...</p>
+            </div>
+            <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج</button>
+        </header>
+
+        <!-- ربط كرت جديد بالحساب -->
+        <div class="claim-card-section">
+            <h3><i class="fa-solid fa-plus-circle"></i> تفعيل كرت جديد</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 5px;">أدخل رمز الكرت (Card ID) المكتوب على العلبة لربطه بحسابك وتعديل ذكرياته.</p>
+            <div class="claim-form">
+                <input type="text" id="cardIdInput" placeholder="أدخل رمز الكرت هنا (مثال: X7K29P4M)">
+                <button id="btnClaimCard" class="btn-claim">ربط الكرت</button>
+            </div>
+        </div>
+
+        <!-- قائمة كروت العميل -->
+        <h3 style="margin-bottom: 15px;">قلاداتك الذكية</h3>
+        <div class="cards-grid" id="myCardsList">
+            <!-- ستظهر كروت المستخدم هنا -->
+        </div>
+    </div>
+
+    <script type="module" src="../js/customer-dashboard.js"></script>
+
+</body>
+</html>
