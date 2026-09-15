@@ -14,12 +14,13 @@ import {
 
 // ⚠️ استبدل هذه الإعدادات ببيانات مشروعك الخاصة من Firebase
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
+  authDomain: "techluxury-4b854.firebaseapp.com",
+  projectId: "techluxury-4b854",
+  storageBucket: "techluxury-4b854.firebasestorage.app",
+  messagingSenderId: "1043863547919",
+  appId: "1:1043863547919:web:46bd7c74f0fbeb2702b37a",
+  measurementId: "G-EZJWPY4Q2Z"
 };
 
 const app = initializeApp(firebaseConfig);
