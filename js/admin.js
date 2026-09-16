@@ -85,7 +85,7 @@ onSnapshot(cardsCollection, (snapshot) => {
         else if (card.status === "disabled") disabled++;
 
         // رابط الكرت الخاص بالـ NFC
-const nfcUrl = `${window.location.origin}${window.location.pathname.replace(/\/html\/.*$/, "")}/html/customer-view.html?id=${card.cardId}`;
+const nfcUrl = `${window.location.origin}/TechLuxury/html/customer-view.html?id=${card.cardId}`;
         
         const row = document.createElement("tr");
         row.innerHTML = `
