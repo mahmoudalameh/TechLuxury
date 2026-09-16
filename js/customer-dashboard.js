@@ -1,6 +1,6 @@
-// بيانات Cloudinary الخاصة بك
-const CLOUDINARY_CLOUD_NAME = "ضع_اسم_السحابة_هنا"; // Cloud Name من Dashboard
-const CLOUDINARY_UPLOAD_PRESET = "ضع_اسم_الـpreset_هنا"; // Upload Preset من إعدادات Upload
+// بيانات Cloudinary الخاصة بك (تأكد من استبدالها ببياناتك الحقيقية)
+const CLOUDINARY_CLOUD_NAME = "ضع_اسم_السحابة_هنا"; 
+const CLOUDINARY_UPLOAD_PRESET = "ضع_اسم_الـpreset_هنا"; 
 
 // دالة مساعدة لرفع أي ملف إلى Cloudinary
 async function uploadToCloudinary(file, resourceType = "auto") {
@@ -17,74 +17,82 @@ async function uploadToCloudinary(file, resourceType = "auto") {
     });
 
     if (!response.ok) {
-        throw new Error("فشل رفع الملف إلى Cloudinary");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("تفاصيل خطأ Cloudinary:", errorData);
+        throw new Error(errorData.error?.message || "فشل رفع الملف إلى Cloudinary");
     }
 
     const data = await response.json();
-    return data.secure_url; // يرجع رابط الملف المشفر الآمن (HTTPS) السريع
+    return data.secure_url; // يرجع رابط الملف المشفر الآمن (HTTPS)
 }
 
+// عناصر النموذج والنافذة
+const editCardForm = document.getElementById("editCardForm");
+const editModal = document.getElementById("editModal");
+
 // دالة حفظ البيانات والوسائط
-editCardForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    
-    const cardId = document.getElementById("editCardId").value;
-    const title = document.getElementById("editTitle").value.trim();
-    const message = document.getElementById("editMessage").value.trim();
-    const securityQuestion = document.getElementById("editSecurityQuestion").value.trim();
-    const securityAnswer = document.getElementById("editSecurityAnswer").value.trim().toLowerCase();
+if (editCardForm) {
+    editCardForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const cardId = document.getElementById("editCardId").value;
+        const title = document.getElementById("editTitle").value.trim();
+        const message = document.getElementById("editMessage").value.trim();
+        const securityQuestion = document.getElementById("editSecurityQuestion").value.trim();
+        const securityAnswer = document.getElementById("editSecurityAnswer").value.trim().toLowerCase();
 
-    const imageFiles = document.getElementById("editImages").files;
-    const videoFile = document.getElementById("editVideo").files[0];
-    const audioFile = document.getElementById("editAudio").files[0];
+        const imageFiles = document.getElementById("editImages").files;
+        const videoFile = document.getElementById("editVideo").files[0];
+        const audioFile = document.getElementById("editAudio").files[0];
 
-    const btnSave = document.getElementById("btnSaveData");
-    btnSave.innerText = "جاري رفع الملفات السريعة...";
-    btnSave.disabled = true;
+        const btnSave = document.getElementById("btnSaveData");
+        btnSave.innerText = "جاري رفع الملفات والذكريات...";
+        btnSave.disabled = true;
 
-    try {
-        const updatePayload = {
-            title: title,
-            message: message,
-            securityQuestion: securityQuestion,
-            securityAnswer: securityAnswer,
-            updatedAt: serverTimestamp()
-        };
+        try {
+            const updatePayload = {
+                title: title,
+                message: message,
+                securityQuestion: securityQuestion,
+                securityAnswer: securityAnswer,
+                updatedAt: serverTimestamp()
+            };
 
-        // 1. رفع الصور إلى Cloudinary
-        if (imageFiles.length > 0) {
-            const imageUrls = [];
-            for (let i = 0; i < imageFiles.length; i++) {
-                const url = await uploadToCloudinary(imageFiles[i], "image");
-                imageUrls.push(url);
+            // 1. رفع الصور إلى Cloudinary (في حال تم اختيار صور جديدة)
+            if (imageFiles && imageFiles.length > 0) {
+                const imageUrls = [];
+                for (let i = 0; i < imageFiles.length; i++) {
+                    const url = await uploadToCloudinary(imageFiles[i], "image");
+                    imageUrls.push(url);
+                }
+                updatePayload.images = imageUrls;
             }
-            updatePayload.images = imageUrls;
+
+            // 2. رفع الفيديو إلى Cloudinary (في حال تم اختيار فيديو جديد)
+            if (videoFile) {
+                const videoUrl = await uploadToCloudinary(videoFile, "video");
+                updatePayload.videoUrl = videoUrl;
+            }
+
+            // 3. رفع ملف الصوت / الموسيقى إلى Cloudinary (باستخدام auto)
+            if (audioFile) {
+                const audioUrl = await uploadToCloudinary(audioFile, "auto");
+                updatePayload.bgMusicUrl = audioUrl;
+            }
+
+            // 4. حفظ الروابط في Firestore
+            const cardRef = doc(db, "cards", cardId);
+            await updateDoc(cardRef, updatePayload);
+
+            alert("تم حفظ الذكرى والوسائط بنجاح وسرعة فائقة!");
+            if (editModal) editModal.classList.remove("active");
+
+        } catch (error) {
+            console.error("خطأ أثناء الرفع:", error);
+            alert("حدث خطأ أثناء رفع الوسائط: " + error.message);
+        } finally {
+            btnSave.innerText = "حفظ التغييرات ورفع الوسائط";
+            btnSave.disabled = false;
         }
-
-        // 2. رفع الفيديو إلى Cloudinary
-        if (videoFile) {
-            const videoUrl = await uploadToCloudinary(videoFile, "video");
-            updatePayload.videoUrl = videoUrl;
-        }
-
-        // 3. رفع ملف الصوت / الموسيقى إلى Cloudinary
-        if (audioFile) {
-            const audioUrl = await uploadToCloudinary(audioFile, "video"); // الصوت يرفع في قسم video في cloudinary
-            updatePayload.bgMusicUrl = audioUrl;
-        }
-
-        // 4. حفظ الروابط في Firestore (كما هو بدون تغيير)
-        const cardRef = doc(db, "cards", cardId);
-        await updateDoc(cardRef, updatePayload);
-
-        alert("تم حفظ الذكرى والوسائط بنجاح وسرعة فائقة!");
-        editModal.classList.remove("active");
-
-    } catch (error) {
-        console.error("خطأ أثناء الرفع:", error);
-        alert("حدث خطأ أثناء رفع الوسائط. تأكد من إعدادات Cloudinary.");
-    } finally {
-        btnSave.innerText = "حفظ التغييرات ورفع الوسائط";
-        btnSave.disabled = false;
-    }
-});
+    });
+}
