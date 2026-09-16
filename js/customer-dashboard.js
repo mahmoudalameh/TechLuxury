@@ -1,19 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getAuth, 
-    onAuthStateChanged, 
-    signOut 
+    getAuth, onAuthStateChanged, signOut 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
-    getFirestore, 
-    doc, 
-    getDoc, 
-    updateDoc, 
-    collection, 
-    query, 
-    where, 
-    getDocs, 
-    serverTimestamp 
+    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // ===== إعدادات Firebase =====
@@ -31,33 +21,24 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ===== إعدادات Cloudinary =====
+// ===== Cloudinary =====
 const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
 const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
-/**
- * رفع ملف إلى Cloudinary
- * @param {File} file - الملف المطلوب رفعه
- * @param {string} resourceType - نوع المورد (image/video/auto)
- * @param {function} onProgress - دالة تستقبل نسبة التقدم (0-100)
- */
 function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
         const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", url);
 
-        // تتبع تقدم الرفع
         if (onProgress) {
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    onProgress(percent);
+                    onProgress(Math.round((e.loaded / e.total) * 100));
                 }
             });
         }
@@ -65,72 +46,39 @@ function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {
-                    const data = JSON.parse(xhr.responseText);
-                    resolve(data.secure_url);
-                } catch (err) {
-                    reject(new Error("فشل تحليل استجابة Cloudinary"));
-                }
+                    resolve(JSON.parse(xhr.responseText).secure_url);
+                } catch { reject(new Error("فشل تحليل الاستجابة")); }
             } else {
                 try {
-                    const errData = JSON.parse(xhr.responseText);
-                    reject(new Error(errData.error?.message || "فشل رفع الملف"));
-                } catch {
-                    reject(new Error("فشل رفع الملف (كود: " + xhr.status + ")"));
-                }
+                    const err = JSON.parse(xhr.responseText);
+                    reject(new Error(err.error?.message || "فشل الرفع"));
+                } catch { reject(new Error("فشل الرفع (كود " + xhr.status + ")")); }
             }
         };
-
         xhr.onerror = () => reject(new Error("خطأ في الاتصال بـ Cloudinary"));
         xhr.send(formData);
     });
 }
 
-/**
- * ضغط صورة قبل الرفع (لتقليل الحجم)
- */
 async function compressImage(file, maxWidth = 1920, quality = 0.85) {
+    if (!file.type.startsWith("image/")) return file;
     return new Promise((resolve) => {
-        // إذا كان الملف ليس صورة، أرجعه كما هو
-        if (!file.type.startsWith("image/")) {
-            resolve(file);
-            return;
-        }
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement("canvas");
-                let width = img.width;
-                let height = img.height;
-
-                // تصغير الأبعاد إذا كانت أكبر من الحد الأقصى
-                if (width > maxWidth) {
-                    height = (maxWidth / width) * height;
-                    width = maxWidth;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob) {
-                            const compressedFile = new File(
-                                [blob],
-                                file.name.replace(/\.[^.]+$/, ".jpg"),
-                                { type: "image/jpeg", lastModified: Date.now() }
-                            );
-                            resolve(compressedFile);
-                        } else {
-                            resolve(file);
-                        }
-                    },
-                    "image/jpeg",
-                    quality
-                );
+                let w = img.width, h = img.height;
+                if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth; }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+                            type: "image/jpeg", lastModified: Date.now()
+                        }));
+                    } else resolve(file);
+                }, "image/jpeg", quality);
             };
             img.onerror = () => resolve(file);
             img.src = e.target.result;
@@ -139,6 +87,12 @@ async function compressImage(file, maxWidth = 1920, quality = 0.85) {
         reader.readAsDataURL(file);
     });
 }
+
+// ===== الحالة العامة =====
+let currentUser = null;
+let currentCard = null;
+let eventsState = [];
+let newBgMusicFile = null;
 
 // ===== عناصر الصفحة =====
 const userEmailEl = document.getElementById("userEmail");
@@ -149,17 +103,26 @@ const myCardsList = document.getElementById("myCardsList");
 const editModal = document.getElementById("editModal");
 const editCardForm = document.getElementById("editCardForm");
 const btnCloseModal = document.getElementById("btnCloseModal");
+const eventsListEl = document.getElementById("eventsList");
+const btnAddEvent = document.getElementById("btnAddEvent");
+const editBgMusic = document.getElementById("editBgMusic");
+const bgMusicStatus = document.getElementById("bgMusicStatus");
 
-let currentUser = null;
-let currentCardData = null; // لتخزين بيانات الكرت الحالي أثناء التعديل
-let imagesToDelete = [];    // لتخزين روابط الصور المطلوب حذفها
+// ===== توليد معرف فريد =====
+function generateId() {
+    return "evt_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+}
+
+// ===== قائمة أنواع المناسبات =====
+const OCCASIONS = [
+    "عيد ميلاد", "ذكرى زواج", "تخرج", "خطوبة", "زواج",
+    "عيد الأم", "عيد الأب", "رمضان", "عيد الفطر", "عيد الأضحى",
+    "السنة الجديدة", "نجاح", "مولود جديد", "أخرى"
+];
 
 // ===== التحقق من تسجيل الدخول =====
 onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        window.location.href = "login.html";
-        return;
-    }
+    if (!user) { window.location.href = "login.html"; return; }
     currentUser = user;
     if (userEmailEl) userEmailEl.textContent = user.email;
     await loadUserCards(user.uid);
@@ -173,22 +136,13 @@ if (btnLogout) {
     });
 }
 
-// ===== 🎯 زر ربط الكرت =====
+// ===== ربط الكرت =====
 if (btnClaimCard) {
     btnClaimCard.addEventListener("click", async (e) => {
         e.preventDefault();
-
         const cardId = cardIdInput.value.trim().toUpperCase();
-
-        if (!cardId) {
-            alert("الرجاء إدخال رمز الكرت");
-            return;
-        }
-
-        if (!currentUser) {
-            alert("يجب تسجيل الدخول أولاً");
-            return;
-        }
+        if (!cardId) { alert("الرجاء إدخال رمز الكرت"); return; }
+        if (!currentUser) { alert("يجب تسجيل الدخول أولاً"); return; }
 
         btnClaimCard.disabled = true;
         btnClaimCard.innerText = "جاري الربط...";
@@ -202,14 +156,14 @@ if (btnClaimCard) {
                 return;
             }
 
-            const cardData = cardSnap.data();
+            const data = cardSnap.data();
 
-            if (cardData.ownerId && cardData.ownerId !== currentUser.uid) {
+            if (data.ownerId && data.ownerId !== currentUser.uid) {
                 alert("❌ هذا الكرت مربوط بحساب آخر");
                 return;
             }
 
-            if (cardData.ownerId === currentUser.uid) {
+            if (data.ownerId === currentUser.uid) {
                 alert("⚠️ هذا الكرت مربوط بحسابك بالفعل");
                 return;
             }
@@ -217,7 +171,8 @@ if (btnClaimCard) {
             await updateDoc(cardRef, {
                 ownerId: currentUser.uid,
                 ownerEmail: currentUser.email,
-                claimedAt: serverTimestamp()
+                claimedAt: serverTimestamp(),
+                events: data.events || []
             });
 
             alert("✅ تم ربط الكرت بنجاح!");
@@ -252,17 +207,18 @@ async function loadUserCards(uid) {
         snapshot.forEach((docSnap) => {
             const card = docSnap.data();
             const cardId = docSnap.id;
+            const eventsCount = (card.events || []).length;
 
             const cardEl = document.createElement("div");
             cardEl.className = "my-card";
             cardEl.innerHTML = `
                 <div>
                     <h3>${card.title || "قلادة بدون عنوان"}</h3>
-                    <p>رمز الكرت: ${cardId}</p>
-                    <p>${card.message ? card.message.substring(0, 80) + "..." : "لا توجد رسالة"}</p>
+                    <p>رمز الكرت: <strong>${cardId}</strong></p>
+                    <p><i class="fa-solid fa-calendar-star"></i> عدد المناسبات: ${eventsCount}</p>
                 </div>
                 <button class="btn-edit-memory" data-id="${cardId}">
-                    <i class="fa-solid fa-pen"></i> تعديل الذكريات
+                    <i class="fa-solid fa-pen"></i> إدارة المناسبات
                 </button>
             `;
 
@@ -281,67 +237,208 @@ async function loadUserCards(uid) {
 
 // ===== فتح نافذة التعديل =====
 function openEditModal(cardId, card) {
-    currentCardData = { ...card, id: cardId };
-    imagesToDelete = [];
+    currentCard = { ...card, id: cardId };
+    newBgMusicFile = null;
 
     document.getElementById("editCardId").value = cardId;
-    document.getElementById("editTitle").value = card.title || "";
-    document.getElementById("editMessage").value = card.message || "";
-    document.getElementById("editSecurityQuestion").value = card.securityQuestion || "";
-    document.getElementById("editSecurityAnswer").value = card.securityAnswer || "";
+    document.getElementById("editCardTitle").value = card.title || "";
 
-    // إعادة تعيين حقول الملفات
-    document.getElementById("editImages").value = "";
-    document.getElementById("editVideo").value = "";
-    document.getElementById("editAudio").value = "";
-    document.getElementById("imagesStatus").textContent = "";
-    document.getElementById("videoStatus").textContent = "";
-    document.getElementById("audioStatus").textContent = "";
+    // إعادة تعيين حقل الموسيقى
+    if (editBgMusic) editBgMusic.value = "";
+    if (bgMusicStatus) bgMusicStatus.textContent = "";
 
-    // عرض الملفات الحالية
-    renderCurrentImages(card.images || []);
-
-    if (card.videoUrl) {
-        document.getElementById("videoStatus").textContent = "✅ يوجد فيديو محفوظ مسبقاً (سيتم استبداله إذا رفعت فيديو جديد)";
-    }
-    if (card.bgMusicUrl) {
-        document.getElementById("audioStatus").textContent = "✅ توجد موسيقى محفوظة مسبقاً (سيتم استبدالها إذا رفعت ملفاً جديداً)";
+    if (card.bgMusicUrl && bgMusicStatus) {
+        bgMusicStatus.textContent = "✅ توجد موسيقى محفوظة (سيتم استبدالها إذا رفعت ملفاً جديداً)";
     }
 
+    // نسخة عميقة من المناسبات
+    eventsState = JSON.parse(JSON.stringify(card.events || []));
+
+    if (eventsState.length === 0) {
+        eventsState.push(createEmptyEvent());
+    }
+
+    renderEvents();
     editModal.classList.add("active");
 }
 
-// ===== عرض الصور الحالية مع زر حذف =====
-function renderCurrentImages(images) {
-    const container = document.getElementById("currentImagesContainer");
+// ===== إنشاء مناسبة فارغة =====
+function createEmptyEvent() {
+    return {
+        id: generateId(),
+        occasion: "عيد ميلاد",
+        title: "",
+        date: "",
+        message: "",
+        images: [],
+        videoUrl: "",
+        securityQuestion: "",
+        securityAnswer: "",
+        _newImages: [],
+        _newVideo: null,
+        _imagesToDelete: []
+    };
+}
+
+// ===== عرض المناسبات =====
+function renderEvents() {
+    if (!eventsListEl) return;
+    eventsListEl.innerHTML = "";
+
+    eventsState.forEach((evt, index) => {
+        const el = document.createElement("div");
+        el.className = "event-card";
+        el.dataset.index = index;
+
+        el.innerHTML = `
+            <div class="event-card-header">
+                <h4>
+                    <span class="event-number">${index + 1}</span>
+                    ${evt.occasion || "مناسبة"}
+                </h4>
+                <button type="button" class="btn-remove-event" data-index="${index}">
+                    <i class="fa-solid fa-trash"></i> حذف
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label>نوع المناسبة</label>
+                <select class="evt-occasion" data-field="occasion">
+                    ${OCCASIONS.map(o =>
+                        `<option value="${o}" ${o === evt.occasion ? "selected" : ""}>${o}</option>`
+                    ).join("")}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>عنوان المناسبة</label>
+                <input type="text" class="evt-title" data-field="title" value="${evt.title || ""}" placeholder="مثال: عيد ميلادي 2024">
+            </div>
+
+            <div class="form-group">
+                <label>تاريخ المناسبة</label>
+                <input type="date" class="evt-date" data-field="date" value="${evt.date || ""}">
+            </div>
+
+            <div class="form-group">
+                <label>الرسالة / الذكرى</label>
+                <textarea class="evt-message" data-field="message" rows="3" placeholder="اكتب رسالتك هنا...">${evt.message || ""}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>📸 الصور المحفوظة (${(evt.images || []).length})</label>
+                <div class="current-images-container" data-index="${index}"></div>
+            </div>
+
+            <div class="form-group">
+                <label>📤 إضافة صور جديدة</label>
+                <input type="file" class="evt-images" accept="image/*" multiple data-index="${index}">
+                <span class="file-status evt-images-status" data-index="${index}"></span>
+            </div>
+
+            <div class="form-group">
+                <label>🎬 ${evt.videoUrl ? "استبدال الفيديو الحالي" : "فيديو المناسبة (اختياري)"}</label>
+                <input type="file" class="evt-video" accept="video/*" data-index="${index}">
+                <span class="file-status evt-video-status" data-index="${index}">
+                    ${evt.videoUrl ? "✅ يوجد فيديو محفوظ" : ""}
+                </span>
+            </div>
+
+            <div class="form-group">
+                <label>🔒 سؤال الأمان (اختياري)</label>
+                <input type="text" class="evt-sec-question" data-field="securityQuestion" value="${evt.securityQuestion || ""}" placeholder="مثال: ما هو تاريخ زواجنا؟">
+            </div>
+
+            <div class="form-group">
+                <label>🔑 إجابة سؤال الأمان</label>
+                <input type="text" class="evt-sec-answer" data-field="securityAnswer" value="${evt.securityAnswer || ""}" placeholder="الإجابة الصحيحة">
+            </div>
+        `;
+
+        eventsListEl.appendChild(el);
+
+        // ربط الحقول النصية
+        el.querySelectorAll("[data-field]").forEach(input => {
+            input.addEventListener("input", (e) => {
+                const field = e.target.dataset.field;
+                eventsState[index][field] = e.target.value;
+
+                if (field === "occasion") {
+                    const h4 = el.querySelector("h4");
+                    h4.innerHTML = `<span class="event-number">${index + 1}</span> ${e.target.value}`;
+                }
+            });
+        });
+
+        // زر حذف المناسبة
+        el.querySelector(".btn-remove-event").addEventListener("click", () => {
+            if (eventsState.length === 1) {
+                alert("يجب أن يحتوي الكرت على مناسبة واحدة على الأقل");
+                return;
+            }
+            if (confirm("هل تريد حذف هذه المناسبة؟")) {
+                eventsState.splice(index, 1);
+                renderEvents();
+            }
+        });
+
+        // عرض الصور الحالية
+        renderCurrentImagesForEvent(index);
+
+        // رفع الصور
+        el.querySelector(".evt-images").addEventListener("change", (e) => {
+            eventsState[index]._newImages = Array.from(e.target.files);
+            const statusEl = document.querySelector(`.evt-images-status[data-index="${index}"]`);
+            if (statusEl) {
+                statusEl.textContent = `📎 ${e.target.files.length} صورة جديدة جاهزة للرفع`;
+            }
+        });
+
+        // رفع الفيديو
+        el.querySelector(".evt-video").addEventListener("change", (e) => {
+            eventsState[index]._newVideo = e.target.files[0] || null;
+            const statusEl = document.querySelector(`.evt-video-status[data-index="${index}"]`);
+            if (statusEl) {
+                statusEl.textContent = e.target.files[0]
+                    ? "📎 فيديو جديد جاهز للرفع"
+                    : (eventsState[index].videoUrl ? "✅ يوجد فيديو محفوظ" : "");
+            }
+        });
+    });
+}
+
+// ===== عرض الصور الحالية لمناسبة =====
+function renderCurrentImagesForEvent(index) {
+    const container = document.querySelector(`.current-images-container[data-index="${index}"]`);
     if (!container) return;
 
-    if (!images || images.length === 0) {
-        container.innerHTML = "<p style='color:#94a3b8; font-size:0.85rem;'>لا توجد صور محفوظة بعد.</p>";
+    const evt = eventsState[index];
+    const images = evt.images || [];
+
+    if (images.length === 0) {
+        container.innerHTML = "<p style='color:#94a3b8; font-size:0.8rem;'>لا توجد صور محفوظة.</p>";
         return;
     }
 
     container.innerHTML = "";
-    images.forEach((url, index) => {
+    images.forEach((url) => {
         const wrapper = document.createElement("div");
         wrapper.style.cssText = "position:relative; display:inline-block; margin:5px;";
         wrapper.innerHTML = `
-            <img src="${url}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #2e374a;">
-            <button type="button" data-url="${url}" style="
+            <img src="${url}" style="width:70px; height:70px; object-fit:cover; border-radius:8px; border:1px solid #2e374a;">
+            <button type="button" style="
                 position:absolute; top:-6px; right:-6px;
                 background:#ef4444; color:#fff; border:none;
-                width:22px; height:22px; border-radius:50%;
-                cursor:pointer; font-size:12px; line-height:1;
+                width:20px; height:20px; border-radius:50%;
+                cursor:pointer; font-size:11px; line-height:1;
             ">×</button>
         `;
-        wrapper.querySelector("button").addEventListener("click", (e) => {
-            const urlToDelete = e.target.dataset.url;
-            imagesToDelete.push(urlToDelete);
-            wrapper.remove();
-
-            if (imagesToDelete.length > 0) {
-                document.getElementById("imagesStatus").textContent =
-                    `⚠️ سيتم حذف ${imagesToDelete.length} صورة عند الحفظ`;
+        wrapper.querySelector("button").addEventListener("click", () => {
+            if (confirm("حذف هذه الصورة؟")) {
+                evt.images = evt.images.filter(u => u !== url);
+                if (!evt._imagesToDelete) evt._imagesToDelete = [];
+                evt._imagesToDelete.push(url);
+                renderCurrentImagesForEvent(index);
             }
         });
         container.appendChild(wrapper);
@@ -355,106 +452,139 @@ if (btnCloseModal) {
     });
 }
 
-// ===== حفظ التعديلات + رفع الوسائط =====
+// ===== إضافة مناسبة جديدة =====
+if (btnAddEvent) {
+    btnAddEvent.addEventListener("click", () => {
+        eventsState.push(createEmptyEvent());
+        renderEvents();
+        const modalCard = editModal.querySelector(".modal-card");
+        setTimeout(() => {
+            modalCard.scrollTop = modalCard.scrollHeight;
+        }, 100);
+    });
+}
+
+// ===== رفع الموسيقى العامة =====
+if (editBgMusic) {
+    editBgMusic.addEventListener("change", (e) => {
+        newBgMusicFile = e.target.files[0] || null;
+        if (bgMusicStatus) {
+            bgMusicStatus.textContent = newBgMusicFile
+                ? "📎 موسيقى جديدة جاهزة للرفع (ستستبدل الحالية)"
+                : (currentCard?.bgMusicUrl ? "✅ توجد موسيقى محفوظة" : "");
+        }
+    });
+}
+
+// ===== حفظ كل التغييرات =====
 if (editCardForm) {
     editCardForm.addEventListener("submit", async (e) => {
         e.preventDefault();
 
         const cardId = document.getElementById("editCardId").value;
-        const title = document.getElementById("editTitle").value.trim();
-        const message = document.getElementById("editMessage").value.trim();
-        const securityQuestion = document.getElementById("editSecurityQuestion").value.trim();
-        const securityAnswer = document.getElementById("editSecurityAnswer").value.trim().toLowerCase();
-
-        const imageFiles = document.getElementById("editImages").files;
-        const videoFile = document.getElementById("editVideo").files[0];
-        const audioFile = document.getElementById("editAudio").files[0];
+        const cardTitle = document.getElementById("editCardTitle").value.trim();
 
         const btnSave = document.getElementById("btnSaveData");
-        const originalText = btnSave.innerText;
-        btnSave.innerText = "جاري رفع الملفات...";
+        const originalText = btnSave.innerHTML;
         btnSave.disabled = true;
 
         try {
-            // 🔒 تحقق أمني: التأكد أن الكرت يخص المستخدم الحالي
+            // 🔒 تحقق أمني
             const cardRef = doc(db, "cards", cardId);
             const cardSnap = await getDoc(cardRef);
+
             if (!cardSnap.exists() || cardSnap.data().ownerId !== currentUser.uid) {
                 throw new Error("غير مصرح لك بتعديل هذا الكرت");
             }
 
+            // 🎵 1. معالجة الموسيقى العامة
+            let newBgMusicUrl = cardSnap.data().bgMusicUrl || "";
+            if (newBgMusicFile) {
+                btnSave.innerHTML = "🎵 جاري رفع موسيقى الخلفية...";
+                newBgMusicUrl = await uploadToCloudinary(
+                    newBgMusicFile,
+                    "auto",
+                    (percent) => {
+                        btnSave.innerHTML = `🎵 رفع موسيقى الخلفية — ${percent}%`;
+                    }
+                );
+            }
+
+            // ===== 2. معالجة كل مناسبة =====
+            const finalEvents = [];
+
+            for (let i = 0; i < eventsState.length; i++) {
+                const evt = eventsState[i];
+                btnSave.innerHTML = `⏳ معالجة المناسبة ${i + 1}/${eventsState.length}...`;
+
+                const processedEvent = {
+                    id: evt.id,
+                    occasion: evt.occasion || "مناسبة",
+                    title: evt.title || "",
+                    date: evt.date || "",
+                    message: evt.message || "",
+                    securityQuestion: evt.securityQuestion || "",
+                    securityAnswer: (evt.securityAnswer || "").toLowerCase(),
+                    images: [...(evt.images || [])],
+                    videoUrl: evt.videoUrl || ""
+                };
+
+                // رفع الصور الجديدة
+                if (evt._newImages && evt._newImages.length > 0) {
+                    const total = evt._newImages.length;
+                    for (let j = 0; j < total; j++) {
+                        btnSave.innerHTML = `📸 مناسبة ${i + 1}: ضغط الصورة ${j + 1}/${total}...`;
+                        const compressed = await compressImage(evt._newImages[j]);
+
+                        btnSave.innerHTML = `📤 مناسبة ${i + 1}: رفع الصورة ${j + 1}/${total}...`;
+                        const url = await uploadToCloudinary(
+                            compressed,
+                            "image",
+                            (percent) => {
+                                btnSave.innerHTML = `📤 مناسبة ${i + 1} - صورة ${j + 1}/${total} — ${percent}%`;
+                            }
+                        );
+                        processedEvent.images.push(url);
+                    }
+                }
+
+                // رفع الفيديو الجديد
+                if (evt._newVideo) {
+                    btnSave.innerHTML = `🎬 مناسبة ${i + 1}: رفع الفيديو...`;
+                    processedEvent.videoUrl = await uploadToCloudinary(
+                        evt._newVideo,
+                        "video",
+                        (percent) => {
+                            btnSave.innerHTML = `🎬 مناسبة ${i + 1} - فيديو — ${percent}%`;
+                        }
+                    );
+                }
+
+                finalEvents.push(processedEvent);
+            }
+
+            // ===== 3. الحفظ النهائي في Firestore =====
+            btnSave.innerHTML = "💾 جاري الحفظ النهائي...";
+
             const updatePayload = {
-                title,
-                message,
-                securityQuestion,
-                securityAnswer,
+                title: cardTitle,
+                bgMusicUrl: newBgMusicUrl,
+                events: finalEvents,
                 updatedAt: serverTimestamp()
             };
 
-            // ===== 1. معالجة الصور =====
-            let finalImages = (cardSnap.data().images || []).filter(
-                (url) => !imagesToDelete.includes(url)
-            );
-
-            if (imageFiles && imageFiles.length > 0) {
-                const total = imageFiles.length;
-                for (let i = 0; i < total; i++) {
-                    const originalFile = imageFiles[i];
-                    btnSave.innerText = `جاري ضغط الصورة ${i + 1}/${total}...`;
-
-                    const compressedFile = await compressImage(originalFile);
-
-                    btnSave.innerText = `جاري رفع الصورة ${i + 1}/${total}...`;
-                    const url = await uploadToCloudinary(
-                        compressedFile,
-                        "image",
-                        (percent) => {
-                            btnSave.innerText = `رفع الصورة ${i + 1}/${total} — ${percent}%`;
-                        }
-                    );
-                    finalImages.push(url);
-                }
-            }
-            updatePayload.images = finalImages;
-
-            // ===== 2. معالجة الفيديو =====
-            if (videoFile) {
-                btnSave.innerText = "جاري رفع الفيديو...";
-                updatePayload.videoUrl = await uploadToCloudinary(
-                    videoFile,
-                    "video",
-                    (percent) => {
-                        btnSave.innerText = `رفع الفيديو — ${percent}%`;
-                    }
-                );
-            }
-
-            // ===== 3. معالجة الصوت =====
-            if (audioFile) {
-                btnSave.innerText = "جاري رفع الموسيقى...";
-                updatePayload.bgMusicUrl = await uploadToCloudinary(
-                    audioFile,
-                    "auto",
-                    (percent) => {
-                        btnSave.innerText = `رفع الموسيقى — ${percent}%`;
-                    }
-                );
-            }
-
-            // ===== 4. الحفظ النهائي في Firestore =====
-            btnSave.innerText = "جاري الحفظ النهائي...";
             await updateDoc(cardRef, updatePayload);
 
-            alert("✅ تم حفظ التغييرات بنجاح!");
+            alert("✅ تم حفظ جميع التغييرات بنجاح!");
             editModal.classList.remove("active");
-            imagesToDelete = [];
+            newBgMusicFile = null;
             await loadUserCards(currentUser.uid);
 
         } catch (error) {
             console.error("خطأ:", error);
             alert("حدث خطأ: " + error.message);
         } finally {
-            btnSave.innerText = originalText;
+            btnSave.innerHTML = originalText;
             btnSave.disabled = false;
         }
     });
