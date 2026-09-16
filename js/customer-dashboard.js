@@ -1,6 +1,6 @@
 // بيانات Cloudinary الخاصة بك (تأكد من استبدالها ببياناتك الحقيقية)
-const CLOUDINARY_CLOUD_NAME = "ضع_اسم_السحابة_هنا"; 
-const CLOUDINARY_UPLOAD_PRESET = "ضع_اسم_الـpreset_هنا"; 
+const CLOUDINARY_CLOUD_NAME = "ypwbnpyd"; 
+const CLOUDINARY_UPLOAD_PRESET = "ml_default"; 
 
 // دالة مساعدة لرفع أي ملف إلى Cloudinary
 async function uploadToCloudinary(file, resourceType = "auto") {
