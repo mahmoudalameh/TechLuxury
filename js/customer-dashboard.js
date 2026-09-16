@@ -1,40 +1,206 @@
-// بيانات Cloudinary الخاصة بك (تأكد من استبدالها ببياناتك الحقيقية)
-const CLOUDINARY_CLOUD_NAME = "ypwbnpyd"; 
-const CLOUDINARY_UPLOAD_PRESET = "ml_default"; 
+// ====== 1. استيراد Firebase ======
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { 
+    getAuth, onAuthStateChanged, signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { 
+    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// دالة مساعدة لرفع أي ملف إلى Cloudinary
+// ====== 2. إعدادات Firebase (استبدلها ببياناتك) ======
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ====== 3. بيانات Cloudinary ======
+const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
+
 async function uploadToCloudinary(file, resourceType = "auto") {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-    // الرابط المباشر للرفع في Cloudinary
     const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
-
-    const response = await fetch(url, {
-        method: "POST",
-        body: formData
-    });
-
+    const response = await fetch(url, { method: "POST", body: formData });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("تفاصيل خطأ Cloudinary:", errorData);
-        throw new Error(errorData.error?.message || "فشل رفع الملف إلى Cloudinary");
+        throw new Error(errorData.error?.message || "فشل رفع الملف");
     }
-
     const data = await response.json();
-    return data.secure_url; // يرجع رابط الملف المشفر الآمن (HTTPS)
+    return data.secure_url;
 }
 
-// عناصر النموذج والنافذة
-const editCardForm = document.getElementById("editCardForm");
+// ====== 4. عناصر الصفحة ======
+const userEmailEl = document.getElementById("userEmail");
+const btnLogout = document.getElementById("btnLogout");
+const btnClaimCard = document.getElementById("btnClaimCard");
+const cardIdInput = document.getElementById("cardIdInput");
+const myCardsList = document.getElementById("myCardsList");
 const editModal = document.getElementById("editModal");
+const editCardForm = document.getElementById("editCardForm");
+const btnCloseModal = document.getElementById("btnCloseModal");
 
-// دالة حفظ البيانات والوسائط
+let currentUser = null;
+
+// ====== 5. مراقبة حالة تسجيل الدخول ======
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        window.location.href = "login.html";
+        return;
+    }
+    currentUser = user;
+    if (userEmailEl) userEmailEl.textContent = user.email;
+    await loadUserCards(user.uid);
+});
+
+// ====== 6. تسجيل الخروج ======
+if (btnLogout) {
+    btnLogout.addEventListener("click", async () => {
+        await signOut(auth);
+        window.location.href = "login.html";
+    });
+}
+
+// ====== 7. ⭐ زر ربط الكرت (المشكلة الأساسية) ======
+if (btnClaimCard) {
+    btnClaimCard.addEventListener("click", async (e) => {
+        e.preventDefault();
+        console.log("تم الضغط على زر ربط الكرت"); // للتشخيص
+
+        const cardId = cardIdInput.value.trim().toUpperCase();
+
+        if (!cardId) {
+            alert("الرجاء إدخال رمز الكرت");
+            return;
+        }
+
+        if (!currentUser) {
+            alert("يجب تسجيل الدخول أولاً");
+            return;
+        }
+
+        btnClaimCard.disabled = true;
+        btnClaimCard.innerText = "جاري الربط...";
+
+        try {
+            const cardRef = doc(db, "cards", cardId);
+            const cardSnap = await getDoc(cardRef);
+
+            if (!cardSnap.exists()) {
+                alert("❌ هذا الكرت غير موجود، تأكد من الرمز");
+                return;
+            }
+
+            const cardData = cardSnap.data();
+
+            // تحقق إذا الكرت مربوط بمستخدم آخر
+            if (cardData.ownerId && cardData.ownerId !== currentUser.uid) {
+                alert("❌ هذا الكرت مربوط بحساب آخر");
+                return;
+            }
+
+            if (cardData.ownerId === currentUser.uid) {
+                alert("⚠️ هذا الكرت مربوط بحسابك بالفعل");
+                return;
+            }
+
+            // ربط الكرت بالمستخدم الحالي
+            await updateDoc(cardRef, {
+                ownerId: currentUser.uid,
+                ownerEmail: currentUser.email,
+                claimedAt: serverTimestamp()
+            });
+
+            alert("✅ تم ربط الكرت بنجاح!");
+            cardIdInput.value = "";
+            await loadUserCards(currentUser.uid);
+
+        } catch (error) {
+            console.error("خطأ أثناء الربط:", error);
+            alert("حدث خطأ: " + error.message);
+        } finally {
+            btnClaimCard.disabled = false;
+            btnClaimCard.innerText = "ربط الكرت";
+        }
+    });
+}
+
+// ====== 8. تحميل كروت المستخدم ======
+async function loadUserCards(uid) {
+    if (!myCardsList) return;
+    myCardsList.innerHTML = "<p style='color:#94a3b8;'>جاري التحميل...</p>";
+
+    try {
+        const q = query(collection(db, "cards"), where("ownerId", "==", uid));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            myCardsList.innerHTML = "<p style='color:#94a3b8;'>لا توجد كروت مربوطة بحسابك بعد.</p>";
+            return;
+        }
+
+        myCardsList.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+            const card = docSnap.data();
+            const cardId = docSnap.id;
+
+            const cardEl = document.createElement("div");
+            cardEl.className = "my-card";
+            cardEl.innerHTML = `
+                <div>
+                    <h3>${card.title || "قلادة بدون عنوان"}</h3>
+                    <p>رمز الكرت: ${cardId}</p>
+                    <p>${card.message ? card.message.substring(0, 80) + "..." : "لا توجد رسالة"}</p>
+                </div>
+                <button class="btn-edit-memory" data-id="${cardId}">
+                    <i class="fa-solid fa-pen"></i> تعديل الذكريات
+                </button>
+            `;
+
+            cardEl.querySelector(".btn-edit-memory").addEventListener("click", () => {
+                openEditModal(cardId, card);
+            });
+
+            myCardsList.appendChild(cardEl);
+        });
+
+    } catch (error) {
+        console.error("خطأ في تحميل الكروت:", error);
+        myCardsList.innerHTML = "<p style='color:#f87171;'>فشل تحميل الكروت</p>";
+    }
+}
+
+// ====== 9. فتح نافذة التعديل ======
+function openEditModal(cardId, card) {
+    document.getElementById("editCardId").value = cardId;
+    document.getElementById("editTitle").value = card.title || "";
+    document.getElementById("editMessage").value = card.message || "";
+    document.getElementById("editSecurityQuestion").value = card.securityQuestion || "";
+    document.getElementById("editSecurityAnswer").value = card.securityAnswer || "";
+    editModal.classList.add("active");
+}
+
+// ====== 10. إغلاق النافذة ======
+if (btnCloseModal) {
+    btnCloseModal.addEventListener("click", () => {
+        editModal.classList.remove("active");
+    });
+}
+
+// ====== 11. حفظ بيانات التعديل + الوسائط ======
 if (editCardForm) {
     editCardForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
         const cardId = document.getElementById("editCardId").value;
         const title = document.getElementById("editTitle").value.trim();
         const message = document.getElementById("editMessage").value.trim();
@@ -46,19 +212,15 @@ if (editCardForm) {
         const audioFile = document.getElementById("editAudio").files[0];
 
         const btnSave = document.getElementById("btnSaveData");
-        btnSave.innerText = "جاري رفع الملفات والذكريات...";
+        btnSave.innerText = "جاري رفع الملفات...";
         btnSave.disabled = true;
 
         try {
             const updatePayload = {
-                title: title,
-                message: message,
-                securityQuestion: securityQuestion,
-                securityAnswer: securityAnswer,
+                title, message, securityQuestion, securityAnswer,
                 updatedAt: serverTimestamp()
             };
 
-            // 1. رفع الصور إلى Cloudinary (في حال تم اختيار صور جديدة)
             if (imageFiles && imageFiles.length > 0) {
                 const imageUrls = [];
                 for (let i = 0; i < imageFiles.length; i++) {
@@ -68,28 +230,21 @@ if (editCardForm) {
                 updatePayload.images = imageUrls;
             }
 
-            // 2. رفع الفيديو إلى Cloudinary (في حال تم اختيار فيديو جديد)
             if (videoFile) {
-                const videoUrl = await uploadToCloudinary(videoFile, "video");
-                updatePayload.videoUrl = videoUrl;
+                updatePayload.videoUrl = await uploadToCloudinary(videoFile, "video");
             }
 
-            // 3. رفع ملف الصوت / الموسيقى إلى Cloudinary (باستخدام auto)
             if (audioFile) {
-                const audioUrl = await uploadToCloudinary(audioFile, "auto");
-                updatePayload.bgMusicUrl = audioUrl;
+                updatePayload.bgMusicUrl = await uploadToCloudinary(audioFile, "auto");
             }
 
-            // 4. حفظ الروابط في Firestore
-            const cardRef = doc(db, "cards", cardId);
-            await updateDoc(cardRef, updatePayload);
-
-            alert("تم حفظ الذكرى والوسائط بنجاح وسرعة فائقة!");
-            if (editModal) editModal.classList.remove("active");
+            await updateDoc(doc(db, "cards", cardId), updatePayload);
+            alert("✅ تم حفظ التغييرات بنجاح!");
+            editModal.classList.remove("active");
 
         } catch (error) {
-            console.error("خطأ أثناء الرفع:", error);
-            alert("حدث خطأ أثناء رفع الوسائط: " + error.message);
+            console.error("خطأ:", error);
+            alert("حدث خطأ: " + error.message);
         } finally {
             btnSave.innerText = "حفظ التغييرات ورفع الوسائط";
             btnSave.disabled = false;
