@@ -87,9 +87,22 @@
             flex-direction: column;
             justify-content: space-between;
             gap: 15px;
+            position: relative;
         }
 
-        .my-card h3 { color: var(--accent-gold); }
+        .my-card .card-type-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(226, 183, 20, 0.15);
+            color: var(--accent-gold);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            border: 1px solid rgba(226, 183, 20, 0.3);
+        }
+
+        .my-card h3 { color: var(--accent-gold); margin-top: 15px; }
         .my-card p { font-size: 0.9rem; color: var(--text-muted); }
 
         .btn-edit-memory {
@@ -162,8 +175,7 @@
 
         .form-group input[type="text"],
         .form-group input[type="date"],
-        .form-group textarea,
-        .form-group select {
+        .form-group textarea {
             width: 100%;
             padding: 10px;
             background: #0f172a;
@@ -202,91 +214,45 @@
 
         .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* Events */
-        .events-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 15px;
+        /* اختيار نوع الكرت */
+        .type-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
         }
 
-        .event-card {
+        .type-option {
             background: #0f172a;
-            border: 1px solid var(--border-color);
+            border: 2px solid var(--border-color);
             border-radius: 12px;
-            padding: 16px;
-        }
-
-        .event-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .event-card-header h4 {
-            color: var(--accent-gold);
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-        }
-
-        .event-number {
-            background: var(--accent-gold);
-            color: #000;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 0.8rem;
-            margin-left: 8px;
-        }
-
-        .btn-remove-event {
-            background: rgba(239, 68, 68, 0.15);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            padding: 6px 12px;
-            border-radius: 8px;
+            padding: 16px 10px;
+            text-align: center;
             cursor: pointer;
-            font-size: 0.85rem;
-        }
-
-        .btn-remove-event:hover { background: rgba(239, 68, 68, 0.3); }
-
-        .btn-add-event {
-            width: 100%;
-            background: rgba(226, 183, 20, 0.1);
-            color: var(--accent-gold);
-            border: 2px dashed var(--accent-gold);
-            padding: 14px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 0.95rem;
             transition: all 0.2s;
         }
 
-        .btn-add-event:hover { background: rgba(226, 183, 20, 0.2); }
-
-        .section-title {
-            font-size: 1.1rem;
-            color: var(--accent-gold);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-color);
-            margin-top: 25px;
+        .type-option:hover {
+            border-color: var(--accent-gold);
+            transform: translateY(-3px);
         }
 
-        .hint {
-            background: rgba(59, 130, 246, 0.1);
-            border-right: 3px solid #3b82f6;
-            padding: 10px 12px;
-            border-radius: 6px;
+        .type-option.selected {
+            border-color: var(--accent-gold);
+            background: rgba(226, 183, 20, 0.1);
+        }
+
+        .type-option i {
+            font-size: 1.8rem;
+            color: var(--accent-gold);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .type-option span {
             font-size: 0.85rem;
-            color: #93c5fd;
-            margin-bottom: 15px;
+            color: var(--text-main);
+            font-weight: 600;
         }
 
         .music-box {
@@ -296,6 +262,51 @@
             padding: 16px;
             margin-bottom: 20px;
         }
+
+        .section-title {
+            font-size: 1.05rem;
+            color: var(--accent-gold);
+            margin: 20px 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .current-images-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .image-thumb {
+            position: relative;
+            display: inline-block;
+        }
+
+        .image-thumb img {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .image-thumb button {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+        }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -309,20 +320,18 @@
             <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج</button>
         </header>
 
-        <!-- ربط كرت جديد بالحساب -->
         <div class="claim-card-section">
             <h3><i class="fa-solid fa-plus-circle"></i> تفعيل كرت جديد</h3>
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 5px;">أدخل رمز الكرت (Card ID) المكتوب على العلبة لربطه بحسابك وتعديل ذكرياته.</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 5px;">أدخل رمز الكرت المكتوب على العلبة.</p>
             <div class="claim-form">
-                <input type="text" id="cardIdInput" placeholder="أدخل رمز الكرت هنا (مثال: X7K29P4M)">
+                <input type="text" id="cardIdInput" placeholder="مثال: X7K29P4M">
                 <button id="btnClaimCard" class="btn-claim">ربط الكرت</button>
             </div>
         </div>
 
-        <!-- قائمة كروت العميل -->
         <h3 style="margin-bottom: 15px;">قلاداتك الذكية</h3>
         <div class="cards-grid" id="myCardsList">
-            <!-- ستظهر كروت المستخدم هنا -->
+            <p style="color:#94a3b8;">جاري التحميل...</p>
         </div>
     </div>
 
@@ -330,49 +339,106 @@
     <div class="modal-overlay" id="editModal">
         <div class="modal-card">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-pen-to-square"></i> إدارة المناسبات والذكريات</h3>
+                <h3 id="modalTitle"><i class="fa-solid fa-pen-to-square"></i> إدارة الكرت</h3>
                 <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
+
             <form id="editCardForm">
                 <input type="hidden" id="editCardId">
 
-                <!-- عنوان عام للكرت -->
-                <div class="form-group">
-                    <label>عنوان الكرت العام (اختياري)</label>
-                    <input type="text" id="editCardTitle" placeholder="مثال: قلادة أحمد">
-                </div>
-
-                <!-- 🎵 الموسيقى العامة -->
-                <h3 class="section-title"><i class="fa-solid fa-music"></i> موسيقى الخلفية للكرت</h3>
-                <div class="music-box">
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label>🎵 الموسيقى التي ستعمل تلقائياً عند فتح الكرت</label>
-                        <input type="file" id="editBgMusic" accept="audio/*">
-                        <span class="file-status" id="bgMusicStatus"></span>
+                <!-- 1) اختيار نوع الكرت -->
+                <div id="stepTypeSelect">
+                    <h3 class="section-title"><i class="fa-solid fa-list"></i> اختر نوع الكرت</h3>
+                    <div class="type-selector" id="typeSelector">
+                        <!-- ستُضاف أنواع الكروت هنا ديناميكياً -->
                     </div>
-                    <p style="color:#94a3b8; font-size:0.78rem; margin-top:8px;">
-                        <i class="fa-solid fa-info-circle"></i>
-                        هذه الموسيقى ستعمل في الخلفية بمجرد دخول الزائر إلى صفحة الكرت.
-                    </p>
+                    <button type="button" id="btnConfirmType" class="btn-save" style="margin-top:20px;" disabled>
+                        متابعة
+                    </button>
                 </div>
 
-                <!-- قسم المناسبات -->
-                <h3 class="section-title"><i class="fa-solid fa-calendar-star"></i> المناسبات</h3>
+                <!-- 2) حقول الكرت (تظهر بعد اختيار النوع) -->
+                <div id="stepCardFields" class="hidden">
+                    <!-- عنوان الكرت -->
+                    <div class="form-group">
+                        <label>عنوان الكرت</label>
+                        <input type="text" id="editCardTitle" placeholder="مثال: إلى أغلى إنسانة...">
+                    </div>
 
-                <div class="hint">
-                    <i class="fa-solid fa-lightbulb"></i>
-                    يمكنك إضافة أكثر من مناسبة في نفس الكرت (عيد ميلاد، ذكرى زواج، تخرج...). كل مناسبة لها صورها وفيديوها ورسالتها الخاصة.
+                    <!-- تاريخ (يظهر في أنواع معينة) -->
+                    <div class="form-group" id="dateGroup">
+                        <label>تاريخ المناسبة (اختياري)</label>
+                        <input type="date" id="editCardDate">
+                    </div>
+
+                    <!-- الرسالة (تظهر في أنواع معينة) -->
+                    <div class="form-group" id="messageGroup">
+                        <label>الرسالة / الذكرى</label>
+                        <textarea id="editCardMessage" rows="4" placeholder="اكتب رسالتك هنا..."></textarea>
+                    </div>
+
+                    <!-- الصور (تظهر في كل الأنواع ما عدا "كرت فيديو") -->
+                    <div id="imagesSection">
+                        <h3 class="section-title"><i class="fa-solid fa-images"></i> الصور</h3>
+
+                        <div class="form-group">
+                            <label>الصور المحفوظة (<span id="imagesCount">0</span>)</label>
+                            <div class="current-images-container" id="currentImagesContainer"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>📤 إضافة صور جديدة</label>
+                            <input type="file" id="editImages" accept="image/*" multiple>
+                            <span class="file-status" id="imagesStatus"></span>
+                        </div>
+                    </div>
+
+                    <!-- الفيديو (يظهر في كل الأنواع ما عدا "ألبوم صور") -->
+                    <div id="videoSection">
+                        <h3 class="section-title"><i class="fa-solid fa-video"></i> الفيديو</h3>
+                        <div class="form-group">
+                            <label>فيديو الكرت</label>
+                            <input type="file" id="editVideo" accept="video/*">
+                            <span class="file-status" id="videoStatus"></span>
+                        </div>
+                    </div>
+
+                    <!-- الموسيقى (تظهر في كل الأنواع) -->
+                    <h3 class="section-title"><i class="fa-solid fa-music"></i> موسيقى الخلفية</h3>
+                    <div class="music-box">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>🎵 الموسيقى التي ستعمل تلقائياً عند فتح الكرت</label>
+                            <input type="file" id="editBgMusic" accept="audio/*">
+                            <span class="file-status" id="bgMusicStatus"></span>
+                        </div>
+                    </div>
+
+                    <!-- سؤال الأمان (يظهر في أنواع معينة فقط) -->
+                    <div id="securitySection">
+                        <h3 class="section-title"><i class="fa-solid fa-lock"></i> سؤال الأمان (اختياري)</h3>
+                        <div class="form-group">
+                            <label>السؤال</label>
+                            <input type="text" id="editSecurityQuestion" placeholder="مثال: ما هو تاريخ ميلادي؟">
+                        </div>
+                        <div class="form-group">
+                            <label>الإجابة</label>
+                            <input type="text" id="editSecurityAnswer" placeholder="الإجابة الصحيحة">
+                        </div>
+                    </div>
+
+                    <!-- زر التغيير النوع -->
+                    <button type="button" id="btnChangeType" style="
+                        background: transparent; color: var(--text-muted);
+                        border: 1px solid var(--border-color); padding: 8px 16px;
+                        border-radius: 8px; cursor: pointer; margin-top: 15px; font-size: 0.85rem;
+                    ">
+                        <i class="fa-solid fa-arrows-rotate"></i> تغيير نوع الكرت
+                    </button>
+
+                    <button type="submit" class="btn-save" id="btnSaveData" style="margin-top:20px;">
+                        <i class="fa-solid fa-floppy-disk"></i> حفظ الكرت
+                    </button>
                 </div>
-
-                <div class="events-list" id="eventsList"></div>
-
-                <button type="button" id="btnAddEvent" class="btn-add-event">
-                    <i class="fa-solid fa-plus"></i> إضافة مناسبة جديدة
-                </button>
-
-                <button type="submit" class="btn-save" id="btnSaveData" style="margin-top:20px;">
-                    <i class="fa-solid fa-floppy-disk"></i> حفظ جميع التغييرات
-                </button>
             </form>
         </div>
     </div>
