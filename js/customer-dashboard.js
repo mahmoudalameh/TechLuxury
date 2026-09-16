@@ -1,122 +1,90 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { 
-    getFirestore, 
-    collection, 
-    doc, 
-    getDoc, 
-    updateDoc, 
-    query, 
-    where, 
-    onSnapshot, 
-    serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+// بيانات Cloudinary الخاصة بك
+const CLOUDINARY_CLOUD_NAME = "ضع_اسم_السحابة_هنا"; // Cloud Name من Dashboard
+const CLOUDINARY_UPLOAD_PRESET = "ضع_اسم_الـpreset_هنا"; // Upload Preset من إعدادات Upload
 
-// ⚠️ استبدل هذه الإعدادات ببيانات مشروعك الخاصة من Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
-  authDomain: "techluxury-4b854.firebaseapp.com",
-  projectId: "techluxury-4b854",
-  storageBucket: "techluxury-4b854.firebasestorage.app",
-  messagingSenderId: "1043863547919",
-  appId: "1:1043863547919:web:46bd7c74f0fbeb2702b37a",
-  measurementId: "G-EZJWPY4Q2Z"
-};
+// دالة مساعدة لرفع أي ملف إلى Cloudinary
+async function uploadToCloudinary(file, resourceType = "auto") {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+    // الرابط المباشر للرفع في Cloudinary
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
 
-let currentUser = null;
-
-// التحقق من حالة تسجيل الدخول
-onAuthStateChanged(auth, (user) => {
-    if (!user) {
-        window.location.href = "login.html";
-    } else {
-        currentUser = user;
-        document.getElementById("userEmail").innerText = user.email;
-        loadUserCards(user.uid);
-    }
-});
-
-// تسجيل الخروج
-document.getElementById("btnLogout").addEventListener("click", () => {
-    signOut(auth).then(() => {
-        window.location.href = "login.html";
+    const response = await fetch(url, {
+        method: "POST",
+        body: formData
     });
-});
 
-// ربط كرت جديد بالحساب (Claim Card)
-document.getElementById("btnClaimCard").addEventListener("click", async () => {
-    const cardId = document.getElementById("cardIdInput").value.trim().toUpperCase();
-    if (!cardId) {
-        alert("يرجى إدخال رمز الكرت.");
-        return;
+    if (!response.ok) {
+        throw new Error("فشل رفع الملف إلى Cloudinary");
     }
+
+    const data = await response.json();
+    return data.secure_url; // يرجع رابط الملف المشفر الآمن (HTTPS) السريع
+}
+
+// دالة حفظ البيانات والوسائط
+editCardForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const cardId = document.getElementById("editCardId").value;
+    const title = document.getElementById("editTitle").value.trim();
+    const message = document.getElementById("editMessage").value.trim();
+    const securityQuestion = document.getElementById("editSecurityQuestion").value.trim();
+    const securityAnswer = document.getElementById("editSecurityAnswer").value.trim().toLowerCase();
+
+    const imageFiles = document.getElementById("editImages").files;
+    const videoFile = document.getElementById("editVideo").files[0];
+    const audioFile = document.getElementById("editAudio").files[0];
+
+    const btnSave = document.getElementById("btnSaveData");
+    btnSave.innerText = "جاري رفع الملفات السريعة...";
+    btnSave.disabled = true;
 
     try {
-        const cardRef = doc(db, "cards", cardId);
-        const cardSnap = await getDoc(cardRef);
-
-        if (!cardSnap.exists()) {
-            alert("رمز الكرت غير صحيح، يرجى التثبت من الرمز.");
-            return;
-        }
-
-        const cardData = cardSnap.data();
-
-        if (cardData.ownerId && cardData.ownerId !== currentUser.uid) {
-            alert("هذا الكرت مربوط بحساب آخر بالفعل!");
-            return;
-        }
-
-        // ربط الكرت بحساب العميل وتحديث حالته لـ active
-        await updateDoc(cardRef, {
-            ownerId: currentUser.uid,
-            status: "active",
+        const updatePayload = {
+            title: title,
+            message: message,
+            securityQuestion: securityQuestion,
+            securityAnswer: securityAnswer,
             updatedAt: serverTimestamp()
-        });
+        };
 
-        alert("تم ربط الكرت بحسابك بنجاح! يمكنك الآن تعديل بياناته.");
-        document.getElementById("cardIdInput").value = "";
+        // 1. رفع الصور إلى Cloudinary
+        if (imageFiles.length > 0) {
+            const imageUrls = [];
+            for (let i = 0; i < imageFiles.length; i++) {
+                const url = await uploadToCloudinary(imageFiles[i], "image");
+                imageUrls.push(url);
+            }
+            updatePayload.images = imageUrls;
+        }
+
+        // 2. رفع الفيديو إلى Cloudinary
+        if (videoFile) {
+            const videoUrl = await uploadToCloudinary(videoFile, "video");
+            updatePayload.videoUrl = videoUrl;
+        }
+
+        // 3. رفع ملف الصوت / الموسيقى إلى Cloudinary
+        if (audioFile) {
+            const audioUrl = await uploadToCloudinary(audioFile, "video"); // الصوت يرفع في قسم video في cloudinary
+            updatePayload.bgMusicUrl = audioUrl;
+        }
+
+        // 4. حفظ الروابط في Firestore (كما هو بدون تغيير)
+        const cardRef = doc(db, "cards", cardId);
+        await updateDoc(cardRef, updatePayload);
+
+        alert("تم حفظ الذكرى والوسائط بنجاح وسرعة فائقة!");
+        editModal.classList.remove("active");
 
     } catch (error) {
-        console.error("خطأ في ربط الكرت:", error);
-        alert("حدث خطأ أثناء تفعيل الكرت.");
+        console.error("خطأ أثناء الرفع:", error);
+        alert("حدث خطأ أثناء رفع الوسائط. تأكد من إعدادات Cloudinary.");
+    } finally {
+        btnSave.innerText = "حفظ التغييرات ورفع الوسائط";
+        btnSave.disabled = false;
     }
 });
-
-// استعلام وتحميل الكروت المملوكة للعميل الحالي فقط
-function loadUserCards(uid) {
-    const cardsQuery = query(collection(db, "cards"), where("ownerId", "==", uid));
-
-    onSnapshot(cardsQuery, (snapshot) => {
-        const cardsList = document.getElementById("myCardsList");
-        cardsList.innerHTML = "";
-
-        if (snapshot.empty) {
-            cardsList.innerHTML = `<p style="color: var(--text-muted); grid-column: 1/-1;">لا توجد كروت مفعلة بحسابك حالياً. استخدم النموذج أعلاه لربط كرتك.</p>`;
-            return;
-        }
-
-        snapshot.forEach((docSnap) => {
-            const card = docSnap.data();
-            const cardElement = document.createElement("div");
-            cardElement.className = "my-card";
-
-            cardElement.innerHTML = `
-                <div>
-                    <h3><i class="fa-solid fa-gem"></i> ${card.title || 'قلادة بدون عنوان'}</h3>
-                    <p>رمز الكرت: <strong>${card.cardId}</strong></p>
-                    <p>الحالة: <span style="color: #34d399;">مفعل ومربوط بحسابك</span></p>
-                </div>
-                <a href="memory.html?id=${card.cardId}" class="btn-edit-memory">
-                    <i class="fa-solid fa-pen-to-square"></i> تعديل الذكريات والبيانات
-                </a>
-            `;
-
-            cardsList.appendChild(cardElement);
-        });
-    });
-}
