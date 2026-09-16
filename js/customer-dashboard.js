@@ -1,13 +1,22 @@
-// ====== 1. استيراد Firebase ======
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getAuth, onAuthStateChanged, signOut 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    getAuth, 
+    onAuthStateChanged, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
-    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    getFirestore, 
+    doc, 
+    getDoc, 
+    updateDoc, 
+    collection, 
+    query, 
+    where, 
+    getDocs, 
+    serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ====== 2. إعدادات Firebase ======
+// ===== نفس إعدادات auth.js بالضبط =====
 const firebaseConfig = {
   apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
   authDomain: "techluxury-4b854.firebaseapp.com",
@@ -22,7 +31,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ====== 3. بيانات Cloudinary ======
+// ===== إعدادات Cloudinary =====
 const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
 const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
@@ -34,13 +43,13 @@ async function uploadToCloudinary(file, resourceType = "auto") {
     const response = await fetch(url, { method: "POST", body: formData });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || "فشل رفع الملف إلى Cloudinary");
+        throw new Error(errorData.error?.message || "فشل رفع الملف");
     }
     const data = await response.json();
     return data.secure_url;
 }
 
-// ====== 4. عناصر الصفحة ======
+// ===== عناصر الصفحة =====
 const userEmailEl = document.getElementById("userEmail");
 const btnLogout = document.getElementById("btnLogout");
 const btnClaimCard = document.getElementById("btnClaimCard");
@@ -52,7 +61,7 @@ const btnCloseModal = document.getElementById("btnCloseModal");
 
 let currentUser = null;
 
-// ====== 5. مراقبة حالة تسجيل الدخول ======
+// ===== التحقق من تسجيل الدخول =====
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
         window.location.href = "login.html";
@@ -63,7 +72,7 @@ onAuthStateChanged(auth, async (user) => {
     await loadUserCards(user.uid);
 });
 
-// ====== 6. تسجيل الخروج ======
+// ===== تسجيل الخروج =====
 if (btnLogout) {
     btnLogout.addEventListener("click", async () => {
         await signOut(auth);
@@ -71,12 +80,12 @@ if (btnLogout) {
     });
 }
 
-// ====== 7. زر ربط الكرت (تم تصحيح التدفق) ======
+// ===== 🎯 زر ربط الكرت =====
 if (btnClaimCard) {
     btnClaimCard.addEventListener("click", async (e) => {
         e.preventDefault();
 
-        const cardId = cardIdInput ? cardIdInput.value.trim().toUpperCase() : "";
+        const cardId = cardIdInput.value.trim().toUpperCase();
 
         if (!cardId) {
             alert("الرجاء إدخال رمز الكرت");
@@ -96,20 +105,22 @@ if (btnClaimCard) {
             const cardSnap = await getDoc(cardRef);
 
             if (!cardSnap.exists()) {
-                throw new Error("هذا الكرت غير موجود، تأكد من الرمز الإدخالي");
+                alert("❌ هذا الكرت غير موجود، تأكد من الرمز");
+                return;
             }
 
             const cardData = cardSnap.data();
 
             if (cardData.ownerId && cardData.ownerId !== currentUser.uid) {
-                throw new Error("هذا الكرت مربوط بحساب آخر بالفعل");
+                alert("❌ هذا الكرت مربوط بحساب آخر");
+                return;
             }
 
             if (cardData.ownerId === currentUser.uid) {
-                throw new Error("هذا الكرت مربوط بحسابك بالفعل");
+                alert("⚠️ هذا الكرت مربوط بحسابك بالفعل");
+                return;
             }
 
-            // ربط الكرت بالمستخدم الحالي
             await updateDoc(cardRef, {
                 ownerId: currentUser.uid,
                 ownerEmail: currentUser.email,
@@ -117,12 +128,12 @@ if (btnClaimCard) {
             });
 
             alert("✅ تم ربط الكرت بنجاح!");
-            if (cardIdInput) cardIdInput.value = "";
+            cardIdInput.value = "";
             await loadUserCards(currentUser.uid);
 
         } catch (error) {
             console.error("خطأ أثناء الربط:", error);
-            alert("❌ " + error.message);
+            alert("حدث خطأ: " + error.message);
         } finally {
             btnClaimCard.disabled = false;
             btnClaimCard.innerText = "ربط الكرت";
@@ -130,7 +141,7 @@ if (btnClaimCard) {
     });
 }
 
-// ====== 8. تحميل كروت المستخدم ======
+// ===== تحميل كروت المستخدم =====
 async function loadUserCards(uid) {
     if (!myCardsList) return;
     myCardsList.innerHTML = "<p style='color:#94a3b8;'>جاري التحميل...</p>";
@@ -175,24 +186,24 @@ async function loadUserCards(uid) {
     }
 }
 
-// ====== 9. فتح نافذة التعديل ======
+// ===== فتح نافذة التعديل =====
 function openEditModal(cardId, card) {
     document.getElementById("editCardId").value = cardId;
     document.getElementById("editTitle").value = card.title || "";
     document.getElementById("editMessage").value = card.message || "";
     document.getElementById("editSecurityQuestion").value = card.securityQuestion || "";
     document.getElementById("editSecurityAnswer").value = card.securityAnswer || "";
-    if (editModal) editModal.classList.add("active");
+    editModal.classList.add("active");
 }
 
-// ====== 10. إغلاق النافذة ======
+// ===== إغلاق النافذة =====
 if (btnCloseModal) {
     btnCloseModal.addEventListener("click", () => {
-        if (editModal) editModal.classList.remove("active");
+        editModal.classList.remove("active");
     });
 }
 
-// ====== 11. حفظ بيانات التعديل + الوسائط ======
+// ===== حفظ التعديلات + رفع الوسائط =====
 if (editCardForm) {
     editCardForm.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -236,10 +247,10 @@ if (editCardForm) {
 
             await updateDoc(doc(db, "cards", cardId), updatePayload);
             alert("✅ تم حفظ التغييرات بنجاح!");
-            if (editModal) editModal.classList.remove("active");
+            editModal.classList.remove("active");
 
         } catch (error) {
-            console.error("خطأ أثناء الحفظ:", error);
+            console.error("خطأ:", error);
             alert("حدث خطأ: " + error.message);
         } finally {
             btnSave.innerText = "حفظ التغييرات ورفع الوسائط";
