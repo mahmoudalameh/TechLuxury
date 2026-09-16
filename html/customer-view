@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ذِكـرى | لحظة لا تُنسى</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: #141b2d;
+            --accent-gold: #e2b714;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #2e374a;
+            --accent-birthday: #ec4899;
+            --accent-anniversary: #e2b714;
+            --accent-graduation: #3b82f6;
+            --accent-mothers: #f43f5e;
+            --accent-ramadan: #a855f7;
+            --accent-album: #10b981;
+            --accent-video: #f97316;
+            --accent-free: #8b5cf6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
+
+        body {
+            background: radial-gradient(circle at 50% 0%, #1a2340 0%, var(--bg-dark) 60%);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* ===== شاشة التحميل ===== */
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        .loading-screen.hidden { opacity: 0; visibility: hidden; }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(226, 183, 20, 0.2);
+            border-top-color: var(--accent-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== شاشة الخطأ ===== */
+        .error-screen {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 15px;
+        }
+
+        .error-screen i {
+            font-size: 4rem;
+            color: #ef4444;
+        }
+
+        .error-screen h2 { color: var(--text-main); }
+
+        /* ===== شاشة سؤال الأمان ===== */
+        .security-screen {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .security-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px 30px;
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .security-box .lock-icon {
+            font-size: 3rem;
+            color: var(--accent-gold);
+            margin-bottom: 20px;
+        }
+
+        .security-box h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+
+        .security-box .question {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .security-box input {
+            width: 100%;
+            padding: 14px;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        .security-box input:focus { border-color: var(--accent-gold); }
+
+        .btn-unlock {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-gold), #d97706);
+            color: #000;
+            font-weight: 700;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-unlock:hover { opacity: 0.9; }
+
+        .error-msg {
+            color: #f87171;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* ===== الحاوية الرئيسية ===== */
+        .view-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-bottom: 100px;
+        }
+
+        /* ===== الهيدر ===== */
+        .card-header {
+            text-align: center;
+            padding: 40px 20px 30px;
+            position: relative;
+        }
+
+        .card-icon-main {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .card-header h1 {
+            font-family: 'Amiri', serif;
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent-gold), #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-header .occasion-label {
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 30px;
+            background: rgba(226, 183, 20, 0.15);
+            color: var(--accent-gold);
+            font-size: 0.9rem;
+            border: 1px solid rgba(226, 183, 20, 0.3);
+            margin-top: 10px;
+        }
+
+        .card-header .card-date {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 12px;
+        }
+
+        /* ===== الرسالة ===== */
+        .message-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .message-box::before {
+            content: '"';
+            position: absolute;
+            top: -20px;
+            right: 20px;
+            font-size: 6rem;
+            color: rgba(226, 183, 20, 0.1);
+            font-family: 'Amiri', serif;
+        }
+
+        .message-box p {
+            font-family: 'Amiri', serif;
+            font-size: 1.3rem;
+            line-height: 2;
+            color: var(--text-main);
+            position: relative;
+            z-index: 1;
+            white-space: pre-wrap;
+        }
+
+        /* ===== معرض الصور ===== */
+        .section-title {
+            font-size: 1.1rem;
+            color: var(--accent-gold);
+            margin: 30px 0 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to left, transparent, var(--border-color));
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .gallery img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid var(--border-color);
+        }
+
+        .gallery img:hover {
+            transform: scale(1.03);
+            box-shadow: 0 10px 25px rgba(226, 183, 20, 0.2);
+            border-color: var(--accent-gold);
+        }
+
+        /* للصور الفردية (ألبوم صور) */
+        .gallery.single-column {
+            grid-template-columns: 1fr;
+        }
+
+        .gallery.single-column img {
+            aspect-ratio: auto;
+            max-height: 500px;
+        }
+
+        /* ===== الفيديو ===== */
+        .video-wrapper {
+            margin-top: 20px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+
+        /* ===== Lightbox لعرض الصور ===== */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+
+        .lightbox.active { display: flex; }
+
+        .lightbox img {
+            max-width: 95%;
+            max-height: 90vh;
+            border-radius: 12px;
+            object-fit: contain;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .lightbox-nav.prev { right: 20px; }
+        .lightbox-nav.next { left: 20px; }
+
+        .lightbox-counter {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        /* ===== زر تشغيل الموسيقى (في حال منع المتصفح) ===== */
+        .music-toggle {
+            position: fixed;
+            bottom: 25px;
+            left: 25px;
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-gold), #d97706);
+            color: #000;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(226, 183, 20, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: pulse 2s infinite;
+        }
+
+        .music-toggle.visible { display: flex; }
+
+        .music-toggle.playing i { animation: spin 3s linear infinite; }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 8px 20px rgba(226, 183, 20, 0.4); }
+            50% { transform: scale(1.08); box-shadow: 0 8px 30px rgba(226, 183, 20, 0.7); }
+        }
+
+        /* ===== تأثيرات حسب النوع ===== */
+        .confetti {
+            position: fixed;
+            top: -10px;
+            width: 10px;
+            height: 10px;
+            background: var(--accent-gold);
+            animation: fall linear infinite;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.7;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        .heart {
+            position: fixed;
+            bottom: -20px;
+            color: #ec4899;
+            font-size: 1.5rem;
+            animation: rise linear infinite;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.6;
+        }
+
+        @keyframes rise {
+            to {
+                transform: translateY(-110vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .star {
+            position: fixed;
+            top: -10px;
+            color: #a855f7;
+            font-size: 1.2rem;
+            animation: fall linear infinite;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.7;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 500px) {
+            .card-header h1 { font-size: 1.7rem; }
+            .message-box p { font-size: 1.1rem; }
+            .card-icon-main { font-size: 3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة التحميل -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <p style="color: var(--text-muted);">جاري تحميل الذكرى...</p>
+    </div>
+
+    <!-- الحاوية الرئيسية -->
+    <div class="view-container" id="viewContainer" style="display:none;"></div>
+
+    <!-- Lightbox لعرض الصور -->
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close" id="lightboxClose"><i class="fa-solid fa-xmark"></i></button>
+        <button class="lightbox-nav prev" id="lightboxPrev"><i class="fa-solid fa-chevron-right"></i></button>
+        <img id="lightboxImg" src="">
+        <button class="lightbox-nav next" id="lightboxNext"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="lightbox-counter" id="lightboxCounter"></div>
+    </div>
+
+    <!-- زر تشغيل الموسيقى -->
+    <button class="music-toggle" id="musicToggle" title="تشغيل الموسيقى">
+        <i class="fa-solid fa-music"></i>
+    </button>
+
+    <!-- الموسيقى -->
+    <audio id="bgMusic" loop></audio>
+
+    <script type="module" src="../js/customer-view.js"></script>
+
+</body>
+</html>
