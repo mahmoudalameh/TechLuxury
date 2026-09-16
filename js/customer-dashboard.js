@@ -7,9 +7,9 @@ import {
     getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ====== 2. إعدادات Firebase (استبدلها ببياناتك) ======
+// ====== 2. إعدادات Firebase ======
 const firebaseConfig = {
-apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
+  apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
   authDomain: "techluxury-4b854.firebaseapp.com",
   projectId: "techluxury-4b854",
   storageBucket: "techluxury-4b854.firebasestorage.app",
@@ -34,7 +34,7 @@ async function uploadToCloudinary(file, resourceType = "auto") {
     const response = await fetch(url, { method: "POST", body: formData });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || "فشل رفع الملف");
+        throw new Error(errorData.error?.message || "فشل رفع الملف إلى Cloudinary");
     }
     const data = await response.json();
     return data.secure_url;
@@ -71,13 +71,12 @@ if (btnLogout) {
     });
 }
 
-// ====== 7. ⭐ زر ربط الكرت (المشكلة الأساسية) ======
+// ====== 7. زر ربط الكرت (تم تصحيح التدفق) ======
 if (btnClaimCard) {
     btnClaimCard.addEventListener("click", async (e) => {
         e.preventDefault();
-        console.log("تم الضغط على زر ربط الكرت"); // للتشخيص
 
-        const cardId = cardIdInput.value.trim().toUpperCase();
+        const cardId = cardIdInput ? cardIdInput.value.trim().toUpperCase() : "";
 
         if (!cardId) {
             alert("الرجاء إدخال رمز الكرت");
@@ -97,21 +96,17 @@ if (btnClaimCard) {
             const cardSnap = await getDoc(cardRef);
 
             if (!cardSnap.exists()) {
-                alert("❌ هذا الكرت غير موجود، تأكد من الرمز");
-                return;
+                throw new Error("هذا الكرت غير موجود، تأكد من الرمز الإدخالي");
             }
 
             const cardData = cardSnap.data();
 
-            // تحقق إذا الكرت مربوط بمستخدم آخر
             if (cardData.ownerId && cardData.ownerId !== currentUser.uid) {
-                alert("❌ هذا الكرت مربوط بحساب آخر");
-                return;
+                throw new Error("هذا الكرت مربوط بحساب آخر بالفعل");
             }
 
             if (cardData.ownerId === currentUser.uid) {
-                alert("⚠️ هذا الكرت مربوط بحسابك بالفعل");
-                return;
+                throw new Error("هذا الكرت مربوط بحسابك بالفعل");
             }
 
             // ربط الكرت بالمستخدم الحالي
@@ -122,12 +117,12 @@ if (btnClaimCard) {
             });
 
             alert("✅ تم ربط الكرت بنجاح!");
-            cardIdInput.value = "";
+            if (cardIdInput) cardIdInput.value = "";
             await loadUserCards(currentUser.uid);
 
         } catch (error) {
             console.error("خطأ أثناء الربط:", error);
-            alert("حدث خطأ: " + error.message);
+            alert("❌ " + error.message);
         } finally {
             btnClaimCard.disabled = false;
             btnClaimCard.innerText = "ربط الكرت";
@@ -187,13 +182,13 @@ function openEditModal(cardId, card) {
     document.getElementById("editMessage").value = card.message || "";
     document.getElementById("editSecurityQuestion").value = card.securityQuestion || "";
     document.getElementById("editSecurityAnswer").value = card.securityAnswer || "";
-    editModal.classList.add("active");
+    if (editModal) editModal.classList.add("active");
 }
 
 // ====== 10. إغلاق النافذة ======
 if (btnCloseModal) {
     btnCloseModal.addEventListener("click", () => {
-        editModal.classList.remove("active");
+        if (editModal) editModal.classList.remove("active");
     });
 }
 
@@ -241,10 +236,10 @@ if (editCardForm) {
 
             await updateDoc(doc(db, "cards", cardId), updatePayload);
             alert("✅ تم حفظ التغييرات بنجاح!");
-            editModal.classList.remove("active");
+            if (editModal) editModal.classList.remove("active");
 
         } catch (error) {
-            console.error("خطأ:", error);
+            console.error("خطأ أثناء الحفظ:", error);
             alert("حدث خطأ: " + error.message);
         } finally {
             btnSave.innerText = "حفظ التغييرات ورفع الوسائط";
