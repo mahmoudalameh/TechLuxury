@@ -51,8 +51,8 @@
         }
 
         .claim-form { display: flex; gap: 12px; margin-top: 15px; }
-        .claim-form input {
-            flex: 1;
+        .claim-form input, .modal-body input, .modal-body textarea {
+            width: 100%;
             padding: 12px;
             background: #0f172a;
             border: 1px solid var(--border-color);
@@ -69,6 +69,7 @@
             padding: 0 24px;
             border-radius: 8px;
             cursor: pointer;
+            white-space: nowrap;
         }
 
         .cards-grid {
@@ -85,20 +86,126 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            gap: 15px;
         }
 
-        .my-card h3 { color: var(--accent-gold); margin-bottom: 10px; }
-        .my-card p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; }
+        .my-card h3 { color: var(--accent-gold); }
+        .my-card p { font-size: 0.9rem; color: var(--text-muted); }
 
         .btn-edit-memory {
-            display: block;
-            text-align: center;
+            width: 100%;
             background: #3b82f6;
             color: #fff;
-            text-decoration: none;
+            border: none;
             padding: 10px;
             border-radius: 8px;
             font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .btn-edit-memory:hover { background: #2563eb; }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .form-group input[type="text"], 
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: #fff;
+        }
+
+        .form-group input[type="file"] {
+            background: #0f172a;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: #fff;
+            width: 100%;
+        }
+
+        .file-status {
+            font-size: 0.8rem;
+            color: var(--accent-gold);
+            margin-top: 4px;
+            display: block;
+        }
+
+        .btn-save {
+            width: 100%;
+            background: var(--accent-gold);
+            color: #000;
+            font-weight: 700;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .btn-save:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -127,6 +234,64 @@
         <h3 style="margin-bottom: 15px;">قلاداتك الذكية</h3>
         <div class="cards-grid" id="myCardsList">
             <!-- ستظهر كروت المستخدم هنا -->
+        </div>
+    </div>
+
+    <!-- نافذة تعديل الذكريات والوسائط (Modal) -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-pen-to-square"></i> تعديل بيانات الذكرى والوسائط</h3>
+                <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="editCardForm">
+                <input type="hidden" id="editCardId">
+                
+                <div class="form-group">
+                    <label>عنوان القلادة / الكرت</label>
+                    <input type="text" id="editTitle" placeholder="مثال: ذكريات خطوبتنا" required>
+                </div>
+
+                <div class="form-group">
+                    <label>الرسالة / المحتوى النصي</label>
+                    <textarea id="editMessage" rows="3" placeholder="اكتب الرسالة أو الذكرى هنا..."></textarea>
+                </div>
+
+                <!-- رفع صور الذكريات -->
+                <div class="form-group">
+                    <label><i class="fa-solid fa-images"></i> صور الذكريات (يمكنك اختيار أكثر من صورة)</label>
+                    <input type="file" id="editImages" accept="image/*" multiple>
+                    <span class="file-status" id="imagesStatus"></span>
+                </div>
+
+                <!-- رفع فيديو -->
+                <div class="form-group">
+                    <label><i class="fa-solid fa-video"></i> فيديو الذكرى (اختياري)</label>
+                    <input type="file" id="editVideo" accept="video/*">
+                    <span class="file-status" id="videoStatus"></span>
+                </div>
+
+                <!-- رفع موسيقى الخلفية -->
+                <div class="form-group">
+                    <label><i class="fa-solid fa-music"></i> موسيقى الخلفية (MP3 / Audio)</label>
+                    <input type="file" id="editAudio" accept="audio/*">
+                    <span class="file-status" id="audioStatus"></span>
+                </div>
+
+                <hr style="border-color: var(--border-color); margin: 20px 0;">
+
+                <div class="form-group">
+                    <label>سؤال الأمان (لفتح الذكرى)</label>
+                    <input type="text" id="editSecurityQuestion" placeholder="مثال: ما هو تاريخ زواجنا؟">
+                </div>
+
+                <div class="form-group">
+                    <label>إجابة سؤال الأمان</label>
+                    <input type="text" id="editSecurityAnswer" placeholder="أدخل الإجابة الصحيحة لفتح الكرت">
+                </div>
+
+                <button type="submit" class="btn-save" id="btnSaveData">حفظ التغييرات ورفع الوسائط</button>
+            </form>
         </div>
     </div>
 
