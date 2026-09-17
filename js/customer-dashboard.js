@@ -23,7 +23,7 @@ const db = getFirestore(app);
 
 // ===== Cloudinary =====
 const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
-const CLOUDINARY_UPLOAD_PRESET = "memories_secure"; // ← الـ preset الجديد الآمن (أو "ml_default" إن لم تنشئ واحداً بعد)
+const CLOUDINARY_UPLOAD_PRESET = "ml_default"; // ← الـ preset الجديد الآمن (أو "ml_default" إن لم تنشئ واحداً بعد)
 
 function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
     return new Promise((resolve, reject) => {
