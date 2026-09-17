@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-
 // ===== Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
@@ -18,24 +17,9 @@ const db = getFirestore(app);
 
 // ===== أنواع الكروت =====
 const CARD_TYPES = {
-    gift: {
-        label: "كرت هدية",
-        icon: "fa-gift",
-        color: "#ec4899",
-        effect: "hearts"
-    },
-    memory_book: {
-        label: "كتاب ذكريات",
-        icon: "fa-book-open",
-        color: "#e2b714",
-        effect: null
-    },
-    business_card: {
-        label: "بطاقة عمل",
-        icon: "fa-id-card",
-        color: "#3b82f6",
-        effect: null
-    }
+    gift: { label: "كرت هدية", icon: "fa-gift", color: "#ec4899", effect: "hearts" },
+    memory_book: { label: "كتاب ذكريات", icon: "fa-book-open", color: "#e2b714", effect: null },
+    business_card: { label: "بطاقة عمل", icon: "fa-id-card", color: "#3b82f6", effect: null }
 };
 
 // ===== العناصر =====
@@ -160,17 +144,9 @@ function displayCard(card) {
     const typeInfo = CARD_TYPES[card.type] || CARD_TYPES.gift;
     document.documentElement.style.setProperty("--accent", typeInfo.color);
 
-    // 🎵 تشغيل الموسيقى أولاً
-    if (card.bgMusicUrl) {
-        startMusic(card.bgMusicUrl);
-    }
+    if (card.bgMusicUrl) startMusic(card.bgMusicUrl);
+    if (typeInfo.effect) startEffect(typeInfo.effect, typeInfo.color);
 
-    // 🎨 تأثيرات بصرية حسب النوع
-    if (typeInfo.effect) {
-        startEffect(typeInfo.effect, typeInfo.color);
-    }
-
-    // 🎯 عرض حسب النوع
     if (card.type === "memory_book") {
         renderMemoryBook(card, typeInfo);
     } else if (card.type === "business_card") {
@@ -249,16 +225,134 @@ function renderGiftCard(card, typeInfo) {
     `;
 
     currentImages = images;
-    // ✅ بدل setupGallery، نستخدم نظام الألبوم
     setupAlbum();
 }
 
-    currentImages = images;
-    setupGallery();
+// ============================================================
+// 🖼️ ألبوم الصور (Carousel + Swipe)
+// ============================================================
+function setupAlbum() {
+    const viewport = document.getElementById("albumViewport");
+    if (!viewport) return;
+
+    const slides = viewport.querySelectorAll(".album-slide");
+    const dots = document.querySelectorAll(".album-dot");
+    const counter = document.getElementById("albumCounter");
+    const prevBtn = document.getElementById("albumPrev");
+    const nextBtn = document.getElementById("albumNext");
+
+    let currentSlide = 0;
+    let touchStartX = 0;
+    let touchEndX = 0;
+    let isDragging = false;
+
+    const totalSlides = slides.length;
+    if (totalSlides === 0) return;
+
+    function goToSlide(index) {
+        if (index < 0) index = 0;
+        if (index >= totalSlides) index = totalSlides - 1;
+
+        slides.forEach((s, i) => s.classList.toggle("active", i === index));
+        dots.forEach((d, i) => d.classList.toggle("active", i === index));
+        if (counter) counter.textContent = `${index + 1} / ${totalSlides}`;
+        if (prevBtn) prevBtn.disabled = index === 0;
+        if (nextBtn) nextBtn.disabled = index === totalSlides - 1;
+
+        currentSlide = index;
+    }
+
+    // الأزرار
+    prevBtn?.addEventListener("click", () => goToSlide(currentSlide - 1));
+    nextBtn?.addEventListener("click", () => goToSlide(currentSlide + 1));
+
+    // النقاط
+    dots.forEach((dot) => {
+        dot.addEventListener("click", () => goToSlide(parseInt(dot.dataset.dot)));
+    });
+
+    // ===== السحب باللمس =====
+    viewport.addEventListener("touchstart", (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        isDragging = true;
+    }, { passive: true });
+
+    viewport.addEventListener("touchmove", (e) => {
+        if (!isDragging) return;
+        touchEndX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    viewport.addEventListener("touchend", () => {
+        if (!isDragging) return;
+        handleSwipe();
+        isDragging = false;
+    });
+
+    function handleSwipe() {
+        const distance = touchStartX - touchEndX;
+        const minSwipe = 50;
+        if (Math.abs(distance) < minSwipe) return;
+
+        // RTL: السحب لليسار = التالي، السحب لليمين = السابق
+        if (distance > minSwipe) {
+            goToSlide(currentSlide + 1);
+        } else if (distance < -minSwipe) {
+            goToSlide(currentSlide - 1);
+        }
+    }
+
+    // ===== السحب بالماوس =====
+    let mouseStartX = 0;
+    let isMouseDown = false;
+
+    viewport.addEventListener("mousedown", (e) => {
+        mouseStartX = e.screenX;
+        isMouseDown = true;
+    });
+
+    viewport.addEventListener("mouseup", (e) => {
+        if (!isMouseDown) return;
+        const distance = mouseStartX - e.screenX;
+        const minSwipe = 50;
+
+        if (Math.abs(distance) >= minSwipe) {
+            if (distance > 0) goToSlide(currentSlide + 1);
+            else goToSlide(currentSlide - 1);
+        }
+        isMouseDown = false;
+    });
+
+    viewport.addEventListener("mouseleave", () => { isMouseDown = false; });
+
+    // ===== لوحة المفاتيح =====
+    document.addEventListener("keydown", (e) => {
+        if (lightbox?.classList.contains("active")) return;
+        if (e.key === "ArrowRight") goToSlide(currentSlide - 1);
+        if (e.key === "ArrowLeft") goToSlide(currentSlide + 1);
+    });
+
+    // ===== الضغط على الصورة → Lightbox =====
+    slides.forEach((slide, idx) => {
+        const img = slide.querySelector("img");
+        img?.addEventListener("click", () => {
+            if (isDragging) return;
+            openLightboxFromAlbum(idx);
+        });
+    });
+
+    goToSlide(0);
+}
+
+// فتح Lightbox من داخل الألبوم
+function openLightboxFromAlbum(index) {
+    const imgs = document.querySelectorAll(".album-slide img");
+    currentImages = Array.from(imgs).map(img => img.src);
+    currentImageIndex = index;
+    openLightbox();
 }
 
 // ============================================================
-// 📖 نوع 2: كتاب الذكريات (قلب صفحات)
+// 📖 نوع 2: كتاب الذكريات
 // ============================================================
 function renderMemoryBook(card, typeInfo) {
     bookPages = card.events || [];
@@ -306,160 +400,8 @@ function renderMemoryBook(card, typeInfo) {
         </div>
     `;
 
-    // تفعيل التنقل
     setupBookNavigation();
-
-    // عرض الصفحة الأولى
     showBookPage(0);
-}
-
-// ============================================================
-// 🖼️ ألبوم الصور (Carousel + Swipe)
-// ============================================================
-function setupAlbum() {
-    const viewport = document.getElementById("albumViewport");
-    if (!viewport) return;
-
-    const slides = viewport.querySelectorAll(".album-slide");
-    const dots = document.querySelectorAll(".album-dot");
-    const counter = document.getElementById("albumCounter");
-    const prevBtn = document.getElementById("albumPrev");
-    const nextBtn = document.getElementById("albumNext");
-
-    let currentSlide = 0;
-    let touchStartX = 0;
-    let touchEndX = 0;
-    let isDragging = false;
-
-    const totalSlides = slides.length;
-    if (totalSlides === 0) return;
-
-    function goToSlide(index) {
-        if (index < 0) index = 0;
-        if (index >= totalSlides) index = totalSlides - 1;
-
-        slides.forEach((s, i) => {
-            s.classList.toggle("active", i === index);
-        });
-        dots.forEach((d, i) => {
-            d.classList.toggle("active", i === index);
-        });
-        if (counter) counter.textContent = `${index + 1} / ${totalSlides}`;
-        if (prevBtn) prevBtn.disabled = index === 0;
-        if (nextBtn) nextBtn.disabled = index === totalSlides - 1;
-
-        currentSlide = index;
-    }
-
-    // الأزرار
-    prevBtn?.addEventListener("click", () => goToSlide(currentSlide - 1));
-    nextBtn?.addEventListener("click", () => goToSlide(currentSlide + 1));
-
-    // النقاط
-    dots.forEach((dot) => {
-        dot.addEventListener("click", () => {
-            goToSlide(parseInt(dot.dataset.dot));
-        });
-    });
-
-    // ===== السحب باللمس =====
-    viewport.addEventListener("touchstart", (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        isDragging = true;
-    }, { passive: true });
-
-    viewport.addEventListener("touchmove", (e) => {
-        if (!isDragging) return;
-        touchEndX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    viewport.addEventListener("touchend", () => {
-        if (!isDragging) return;
-        handleSwipe();
-        isDragging = false;
-    });
-
-    function handleSwipe() {
-        const distance = touchStartX - touchEndX;
-        const minSwipe = 50;
-
-        if (Math.abs(distance) < minSwipe) return;
-
-        // RTL: السحب لليمين = الصورة السابقة
-        // السحب لليسار = الصورة التالية
-        if (distance > minSwipe) {
-            // سحب لليسار → التالي
-            goToSlide(currentSlide + 1);
-        } else if (distance < -minSwipe) {
-            // سحب لليمين → السابق
-            goToSlide(currentSlide - 1);
-        }
-    }
-
-    // ===== السحب بالماوس (للكمبيوتر) =====
-    let mouseStartX = 0;
-    let isMouseDown = false;
-
-    viewport.addEventListener("mousedown", (e) => {
-        mouseStartX = e.screenX;
-        isMouseDown = true;
-    });
-
-    viewport.addEventListener("mouseup", (e) => {
-        if (!isMouseDown) return;
-        const distance = mouseStartX - e.screenX;
-        const minSwipe = 50;
-
-        if (Math.abs(distance) >= minSwipe) {
-            if (distance > 0) {
-                // تحريك لليسار → التالي
-                goToSlide(currentSlide + 1);
-            } else {
-                // تحريك لليمين → السابق
-                goToSlide(currentSlide - 1);
-            }
-        }
-        isMouseDown = false;
-    });
-
-    viewport.addEventListener("mouseleave", () => {
-        isMouseDown = false;
-    });
-
-    // ===== لوحة المفاتيح =====
-    document.addEventListener("keydown", (e) => {
-        // فقط إذا لم يكن lightbox مفتوحاً
-        if (lightbox?.classList.contains("active")) return;
-
-        if (e.key === "ArrowRight") goToSlide(currentSlide - 1);
-        if (e.key === "ArrowLeft") goToSlide(currentSlide + 1);
-    });
-
-    // ===== فتح Lightbox عند الضغط على الصورة =====
-    slides.forEach((slide, idx) => {
-        const img = slide.querySelector("img");
-        img?.addEventListener("click", (e) => {
-            // فقط إذا لم يكن هناك سحب
-            if (isDragging) return;
-            currentImageIndex = idx;
-            // إعادة تفعيل دالة openLightbox مع قائمة الصور الصحيحة
-            if (typeof currentImages !== "undefined" && currentImages.length > 0) {
-                currentImages = images || currentImages;
-            }
-            openLightboxFromAlbum(idx);
-        });
-    });
-
-    // تحديث الأزرار في البداية
-    goToSlide(0);
-}
-
-// فتح Lightbox من داخل الألبوم
-function openLightboxFromAlbum(index) {
-    const imgs = document.querySelectorAll(".album-slide img");
-    currentImages = Array.from(imgs).map(img => img.src);
-    currentImageIndex = index;
-    openLightbox();
 }
 
 function renderBookPage(evt, index) {
@@ -507,33 +449,26 @@ function showBookPage(pageNum) {
     if (pageNum < 0 || pageNum >= bookPages.length) return;
     currentBookPage = pageNum;
 
-    // إخفاء كل الصفحات
     document.querySelectorAll(".book-page").forEach(p => p.classList.remove("active"));
-    // إظهار الصفحة المطلوبة
     const activePage = document.querySelector(`.book-page[data-page="${pageNum}"]`);
     if (activePage) activePage.classList.add("active");
 
-    // تحديث المؤشر
     const pageNumEl = document.getElementById("currentPageNum");
     if (pageNumEl) pageNumEl.textContent = pageNum + 1;
 
-    // تحديث النقاط
     document.querySelectorAll(".book-dot").forEach((d, i) => {
         d.classList.toggle("active", i === pageNum);
     });
 
-    // تحديث الأزرار
     const prevBtn = document.getElementById("bookPrev");
     const nextBtn = document.getElementById("bookNext");
     if (prevBtn) prevBtn.disabled = pageNum === 0;
     if (nextBtn) nextBtn.disabled = pageNum === bookPages.length - 1;
 
-    // فتح معرض الصور لهذه الصفحة
     const pageImages = bookPages[pageNum].images || [];
     currentImages = pageImages;
     setupGallery();
 
-    // تمرير لأعلى
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -601,19 +536,14 @@ function renderBusinessCard(card, typeInfo) {
                 </div>
             ` : ""}
 
-            ${contacts.length > 0 ? `
-                <div class="biz-contacts">${contacts.join("")}</div>
-            ` : ""}
-
-            ${socials.length > 0 ? `
-                <div class="biz-socials">${socials.join("")}</div>
-            ` : ""}
+            ${contacts.length > 0 ? `<div class="biz-contacts">${contacts.join("")}</div>` : ""}
+            ${socials.length > 0 ? `<div class="biz-socials">${socials.join("")}</div>` : ""}
         </div>
     `;
 }
 
 // ============================================================
-// معالجة الصور (Lightbox)
+// Lightbox (لصور كتاب الذكريات)
 // ============================================================
 function setupGallery() {
     document.querySelectorAll(".gallery img, .page-gallery img").forEach(img => {
@@ -653,9 +583,7 @@ function prevImage() {
 lightboxClose?.addEventListener("click", closeLightbox);
 lightboxNext?.addEventListener("click", nextImage);
 lightboxPrev?.addEventListener("click", prevImage);
-lightbox?.addEventListener("click", (e) => {
-    if (e.target === lightbox) closeLightbox();
-});
+lightbox?.addEventListener("click", (e) => { if (e.target === lightbox) closeLightbox(); });
 
 document.addEventListener("keydown", (e) => {
     if (!lightbox.classList.contains("active")) return;
