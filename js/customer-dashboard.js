@@ -847,4 +847,10 @@ if (editCardForm) {
             btnSave.disabled = false;
         }
     });
+    // 🛡️ تشخيص
+
 }
+console.log("✅ customer-dashboard.js تم تحميله");
+console.log("CARD_TYPES:", typeof CARD_TYPES, CARD_TYPES);
+console.log("renderTypeSelector:", typeof renderTypeSelector);
+console.log("typeSelector element:", document.getElementById("typeSelector"));
