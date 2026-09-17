@@ -1,7 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js".replace("firestore", "app");
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ===== إعدادات Firebase =====
+// ===== Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
   authDomain: "techluxury-4b854.firebaseapp.com",
@@ -17,61 +17,23 @@ const db = getFirestore(app);
 
 // ===== أنواع الكروت =====
 const CARD_TYPES = {
-    birthday: {
-        label: "عيد ميلاد",
-        icon: "fa-birthday-cake",
-        color: "#ec4899",
-        effect: "confetti",
-        greeting: "🎂 كل عام وأنت بخير 🎂"
-    },
-    anniversary: {
-        label: "ذكرى زواج",
-        icon: "fa-ring",
-        color: "#e2b714",
-        effect: "hearts",
-        greeting: "💍 ذكرى سعيدة 💍"
-    },
-    graduation: {
-        label: "تخرج",
-        icon: "fa-graduation-cap",
-        color: "#3b82f6",
-        effect: "confetti",
-        greeting: "🎓 مبروك التخرج 🎓"
-    },
-    mothers_day: {
-        label: "عيد الأم",
-        icon: "fa-heart",
-        color: "#f43f5e",
-        effect: "hearts",
-        greeting: "💐 إلى أغلى إنسانة 💐"
-    },
-    ramadan: {
-        label: "رمضان / عيد",
-        icon: "fa-moon",
-        color: "#a855f7",
-        effect: "stars",
-        greeting: "🌙 كل عام وأنتم بخير 🌙"
-    },
-    photo_album: {
-        label: "ألبوم صور",
-        icon: "fa-images",
-        color: "#10b981",
-        effect: null,
-        greeting: "📸 ذكريات لا تُنسى 📸"
-    },
-    video_card: {
-        label: "كرت فيديو",
-        icon: "fa-video",
-        color: "#f97316",
-        effect: null,
-        greeting: "🎬 شاهد الذكرى 🎬"
-    },
-    free: {
-        label: "مناسبة حرة",
+    gift: {
+        label: "كرت هدية",
         icon: "fa-gift",
-        color: "#8b5cf6",
-        effect: "confetti",
-        greeting: "🎁 ذكرى خاصة 🎁"
+        color: "#ec4899",
+        effect: "hearts"
+    },
+    memory_book: {
+        label: "كتاب ذكريات",
+        icon: "fa-book-open",
+        color: "#e2b714",
+        effect: null
+    },
+    business_card: {
+        label: "بطاقة عمل",
+        icon: "fa-id-card",
+        color: "#3b82f6",
+        effect: null
     }
 };
 
@@ -90,8 +52,10 @@ const lightboxNext = document.getElementById("lightboxNext");
 let currentImages = [];
 let currentImageIndex = 0;
 let musicStarted = false;
+let currentBookPage = 0;
+let bookPages = [];
 
-// ===== الحصول على معرف الكرت من الرابط =====
+// ===== الحصول على معرف الكرت =====
 function getCardIdFromURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("id") || params.get("card") || params.get("c");
@@ -100,37 +64,33 @@ function getCardIdFromURL() {
 // ===== بدء التشغيل =====
 async function init() {
     const cardId = getCardIdFromURL();
-
     if (!cardId) {
-        showError("لم يتم تحديد الكرت", "الرجاء مسح رمز QR الموجود على القلادة للوصول إلى الذكرى.");
+        showError("لم يتم تحديد الكرت", "الرجاء مسح رمز QR للوصول إلى الذكرى.");
         return;
     }
 
     try {
         const cardSnap = await getDoc(doc(db, "cards", cardId));
-
         if (!cardSnap.exists()) {
             showError("الكرت غير موجود", "تأكد من صحة الرابط أو تواصل مع الدعم.");
             return;
         }
 
         const card = cardSnap.data();
-
         if (!card.ownerId) {
             showError("الكرت غير مُفعّل", "هذا الكرت لم يُربط بحساب بعد.");
             return;
         }
 
-        // 🔒 التحقق من سؤال الأمان
+        // 🔒 سؤال الأمان
         if (card.securityQuestion && card.securityAnswer) {
             showSecurityScreen(card);
         } else {
             displayCard(card);
         }
-
     } catch (error) {
         console.error(error);
-        showError("خطأ", "حدث خطأ أثناء تحميل الكرت. يرجى المحاولة لاحقاً.");
+        showError("خطأ", "حدث خطأ أثناء تحميل الكرت.");
     }
 }
 
@@ -158,14 +118,14 @@ function showSecurityScreen(card) {
                 <div class="lock-icon"><i class="fa-solid fa-lock"></i></div>
                 <h3>🔐 هذه الذكرى محمية</h3>
                 <p style="color: var(--text-muted); margin-bottom: 15px; font-size: 0.9rem;">
-                    للإجابة على السؤال وفتح الذكرى
+                    أجب على السؤال لفتح الذكرى
                 </p>
                 <div class="question">${card.securityQuestion}</div>
                 <input type="text" id="securityAnswerInput" placeholder="اكتب إجابتك هنا..." autocomplete="off">
                 <button class="btn-unlock" id="btnUnlock">
                     <i class="fa-solid fa-unlock"></i> فتح الذكرى
                 </button>
-                <p class="error-msg" id="securityError">❌ الإجابة غير صحيحة، حاول مرة أخرى</p>
+                <p class="error-msg" id="securityError">❌ الإجابة غير صحيحة</p>
             </div>
         </div>
     `;
@@ -177,49 +137,65 @@ function showSecurityScreen(card) {
     const tryUnlock = () => {
         const answer = input.value.trim().toLowerCase();
         const correct = (card.securityAnswer || "").toLowerCase();
-
         if (answer === correct) {
             displayCard(card);
         } else {
             errorMsg.style.display = "block";
             input.value = "";
             input.focus();
-            // اهتزاز
-            input.style.animation = "shake 0.3s";
-            setTimeout(() => input.style.animation = "", 300);
         }
     };
 
     btn.addEventListener("click", tryUnlock);
-    input.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") tryUnlock();
-    });
-
+    input.addEventListener("keypress", (e) => { if (e.key === "Enter") tryUnlock(); });
     input.focus();
 }
 
-// ===== عرض الكرت =====
+// ===== عرض الكرت حسب النوع =====
 function displayCard(card) {
     loadingScreen.classList.add("hidden");
     viewContainer.style.display = "block";
 
-    const typeInfo = CARD_TYPES[card.type] || CARD_TYPES.free;
-    const accentColor = typeInfo.color;
+    const typeInfo = CARD_TYPES[card.type] || CARD_TYPES.gift;
+    document.documentElement.style.setProperty("--accent", typeInfo.color);
 
-    // تحديث لون النظام حسب النوع
-    document.documentElement.style.setProperty("--accent-gold", accentColor);
+    // 🎵 تشغيل الموسيقى أولاً
+    if (card.bgMusicUrl) {
+        startMusic(card.bgMusicUrl);
+    }
 
-    // بناء الصفحة
+    // 🎨 تأثيرات بصرية حسب النوع
+    if (typeInfo.effect) {
+        startEffect(typeInfo.effect, typeInfo.color);
+    }
+
+    // 🎯 عرض حسب النوع
+    if (card.type === "memory_book") {
+        renderMemoryBook(card, typeInfo);
+    } else if (card.type === "business_card") {
+        renderBusinessCard(card, typeInfo);
+    } else {
+        renderGiftCard(card, typeInfo);
+    }
+
+    document.title = card.title || "ذِكـرى";
+}
+
+// ============================================================
+// 🎁 نوع 1: كرت الهدية
+// ============================================================
+function renderGiftCard(card, typeInfo) {
+    const images = card.images || [];
+
     viewContainer.innerHTML = `
-        <header class="card-header">
-            <div class="card-icon-main" style="color: ${accentColor};">
+        <header class="gift-header">
+            <div class="gift-icon" style="color: ${typeInfo.color};">
                 <i class="fa-solid ${typeInfo.icon}"></i>
             </div>
-            <h1>${card.title || typeInfo.greeting}</h1>
-            <div class="occasion-label">
+            <h1>${escapeHtml(card.title) || "🎁 هدية خاصة 🎁"}</h1>
+            <div class="gift-label">
                 <i class="fa-solid ${typeInfo.icon}"></i> ${typeInfo.label}
             </div>
-            ${card.date ? `<p class="card-date"><i class="fa-solid fa-calendar"></i> ${formatDate(card.date)}</p>` : ""}
         </header>
 
         ${card.message ? `
@@ -228,12 +204,12 @@ function displayCard(card) {
             </div>
         ` : ""}
 
-        ${card.images && card.images.length > 0 ? `
+        ${images.length > 0 ? `
             <h3 class="section-title">
-                <i class="fa-solid fa-images"></i> معرض الصور (${card.images.length})
+                <i class="fa-solid fa-images"></i> معرض الصور (${images.length})
             </h3>
-            <div class="gallery ${card.type === "photo_album" ? "single-column" : ""}" id="gallery">
-                ${card.images.map((url, i) => `
+            <div class="gallery" id="gallery">
+                ${images.map((url, i) => `
                     <img src="${url}" data-index="${i}" alt="صورة ${i + 1}" loading="lazy">
                 `).join("")}
             </div>
@@ -246,38 +222,230 @@ function displayCard(card) {
             <div class="video-wrapper">
                 <video controls playsinline preload="metadata">
                     <source src="${card.videoUrl}" type="video/mp4">
-                    متصفحك لا يدعم تشغيل الفيديو.
                 </video>
             </div>
         ` : ""}
     `;
 
-    // تفعيل الصور
-    currentImages = card.images || [];
+    currentImages = images;
     setupGallery();
-
-    // 🎵 تشغيل الموسيقى
-    if (card.bgMusicUrl) {
-        startMusic(card.bgMusicUrl);
-    }
-
-    // ✨ تأثيرات بصرية حسب النوع
-    if (typeInfo.effect) {
-        startEffect(typeInfo.effect, accentColor);
-    }
-
-    // تحديث عنوان الصفحة
-    document.title = card.title || "ذِكـرى";
 }
 
-// ===== معالجة الصور =====
-function setupGallery() {
-    const gallery = document.getElementById("gallery");
-    if (!gallery) return;
+// ============================================================
+// 📖 نوع 2: كتاب الذكريات (قلب صفحات)
+// ============================================================
+function renderMemoryBook(card, typeInfo) {
+    bookPages = card.events || [];
+    currentBookPage = 0;
 
-    gallery.querySelectorAll("img").forEach(img => {
+    if (bookPages.length === 0) {
+        viewContainer.innerHTML = `
+            <div class="error-screen">
+                <i class="fa-solid fa-book" style="color: var(--accent);"></i>
+                <h2>الكتاب فارغ</h2>
+                <p style="color: var(--text-muted);">لم يتم إضافة أي صفحات بعد.</p>
+            </div>
+        `;
+        return;
+    }
+
+    viewContainer.innerHTML = `
+        <div class="book-container">
+            <div class="book-cover">
+                <h1>📖 ${escapeHtml(card.title) || "كتاب الذكريات"}</h1>
+                <p class="book-subtitle">${bookPages.length} صفحة من ذكرياتنا</p>
+            </div>
+
+            <div class="book-pages" id="bookPages">
+                ${bookPages.map((evt, i) => renderBookPage(evt, i)).join("")}
+            </div>
+
+            <div class="book-controls">
+                <button class="book-nav-btn" id="bookPrev" disabled>
+                    <i class="fa-solid fa-chevron-right"></i> السابق
+                </button>
+                <div class="book-page-indicator">
+                    صفحة <strong id="currentPageNum">1</strong> من ${bookPages.length}
+                </div>
+                <button class="book-nav-btn" id="bookNext" ${bookPages.length <= 1 ? "disabled" : ""}>
+                    التالي <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            </div>
+
+            <div class="book-dots" id="bookDots">
+                ${bookPages.map((_, i) =>
+                    `<button class="book-dot ${i === 0 ? "active" : ""}" data-page="${i}"></button>`
+                ).join("")}
+            </div>
+        </div>
+    `;
+
+    // تفعيل التنقل
+    setupBookNavigation();
+
+    // عرض الصفحة الأولى
+    showBookPage(0);
+}
+
+function renderBookPage(evt, index) {
+    const images = evt.images || [];
+    return `
+        <div class="book-page ${index === 0 ? "active" : ""}" data-page="${index}">
+            <div class="page-header">
+                <div class="page-emoji">${evt.emoji || "📌"}</div>
+                <h2 class="page-title">${escapeHtml(evt.title) || "ذكرى"}</h2>
+                ${evt.date ? `<p class="page-date"><i class="fa-solid fa-calendar"></i> ${formatDate(evt.date)}</p>` : ""}
+            </div>
+
+            ${evt.message ? `<p class="page-message">${escapeHtml(evt.message)}</p>` : ""}
+
+            ${images.length > 0 ? `
+                <div class="page-gallery">
+                    ${images.map(url => `<img src="${url}" loading="lazy">`).join("")}
+                </div>
+            ` : ""}
+
+            ${evt.videoUrl ? `
+                <div class="page-video">
+                    <video controls playsinline preload="metadata">
+                        <source src="${evt.videoUrl}" type="video/mp4">
+                    </video>
+                </div>
+            ` : ""}
+        </div>
+    `;
+}
+
+function setupBookNavigation() {
+    const prevBtn = document.getElementById("bookPrev");
+    const nextBtn = document.getElementById("bookNext");
+
+    prevBtn?.addEventListener("click", () => showBookPage(currentBookPage - 1));
+    nextBtn?.addEventListener("click", () => showBookPage(currentBookPage + 1));
+
+    document.querySelectorAll(".book-dot").forEach(dot => {
+        dot.addEventListener("click", () => showBookPage(parseInt(dot.dataset.page)));
+    });
+}
+
+function showBookPage(pageNum) {
+    if (pageNum < 0 || pageNum >= bookPages.length) return;
+    currentBookPage = pageNum;
+
+    // إخفاء كل الصفحات
+    document.querySelectorAll(".book-page").forEach(p => p.classList.remove("active"));
+    // إظهار الصفحة المطلوبة
+    const activePage = document.querySelector(`.book-page[data-page="${pageNum}"]`);
+    if (activePage) activePage.classList.add("active");
+
+    // تحديث المؤشر
+    const pageNumEl = document.getElementById("currentPageNum");
+    if (pageNumEl) pageNumEl.textContent = pageNum + 1;
+
+    // تحديث النقاط
+    document.querySelectorAll(".book-dot").forEach((d, i) => {
+        d.classList.toggle("active", i === pageNum);
+    });
+
+    // تحديث الأزرار
+    const prevBtn = document.getElementById("bookPrev");
+    const nextBtn = document.getElementById("bookNext");
+    if (prevBtn) prevBtn.disabled = pageNum === 0;
+    if (nextBtn) nextBtn.disabled = pageNum === bookPages.length - 1;
+
+    // فتح معرض الصور لهذه الصفحة
+    const pageImages = bookPages[pageNum].images || [];
+    currentImages = pageImages;
+    setupGallery();
+
+    // تمرير لأعلى
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ============================================================
+// 💼 نوع 3: بطاقة العمل
+// ============================================================
+function renderBusinessCard(card, typeInfo) {
+    const contacts = [];
+
+    if (card.phone) {
+        contacts.push(`<a href="tel:${card.phone}" class="biz-contact-btn">
+            <i class="fa-solid fa-phone"></i> اتصل
+        </a>`);
+    }
+    if (card.email) {
+        contacts.push(`<a href="mailto:${card.email}" class="biz-contact-btn">
+            <i class="fa-solid fa-envelope"></i> راسلني
+        </a>`);
+    }
+    if (card.phone) {
+        const whatsappNum = card.phone.replace(/[^0-9]/g, "");
+        contacts.push(`<a href="https://wa.me/${whatsappNum}" target="_blank" class="biz-contact-btn full-width">
+            <i class="fa-brands fa-whatsapp"></i> واتساب
+        </a>`);
+    }
+    if (card.website) {
+        contacts.push(`<a href="${card.website}" target="_blank" class="biz-contact-btn full-width">
+            <i class="fa-solid fa-globe"></i> زيارة الموقع
+        </a>`);
+    }
+    if (card.address) {
+        contacts.push(`<a href="https://maps.google.com/?q=${encodeURIComponent(card.address)}" target="_blank" class="biz-contact-btn full-width">
+            <i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.address)}
+        </a>`);
+    }
+
+    const socials = [];
+    if (card.instagram) socials.push(`<a href="https://instagram.com/${card.instagram.replace("@", "")}" target="_blank" class="biz-social-btn instagram"><i class="fa-brands fa-instagram"></i></a>`);
+    if (card.facebook) socials.push(`<a href="https://${card.facebook.replace(/^https?:\/\//, "")}" target="_blank" class="biz-social-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`);
+    if (card.linkedin) socials.push(`<a href="https://${card.linkedin.replace(/^https?:\/\//, "")}" target="_blank" class="biz-social-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`);
+    if (card.website) socials.push(`<a href="${card.website}" target="_blank" class="biz-social-btn website"><i class="fa-solid fa-globe"></i></a>`);
+
+    viewContainer.innerHTML = `
+        <div class="biz-card">
+            ${card.logoUrl
+                ? `<img src="${card.logoUrl}" class="biz-logo" alt="Logo">`
+                : `<div class="biz-logo-placeholder"><i class="fa-solid fa-user"></i></div>`
+            }
+
+            <h1 class="biz-name">${escapeHtml(card.name) || "بطاقة عمل"}</h1>
+            ${card.jobTitle ? `<p class="biz-job">${escapeHtml(card.jobTitle)}</p>` : ""}
+            ${card.company ? `<p class="biz-company">${escapeHtml(card.company)}</p>` : ""}
+
+            ${card.bio ? `
+                <div class="biz-section">
+                    <div class="biz-section-title"><i class="fa-solid fa-user"></i> نبذة</div>
+                    <div class="biz-section-content">${escapeHtml(card.bio)}</div>
+                </div>
+            ` : ""}
+
+            ${card.services ? `
+                <div class="biz-section">
+                    <div class="biz-section-title"><i class="fa-solid fa-briefcase"></i> الخدمات</div>
+                    <div class="biz-section-content">${escapeHtml(card.services)}</div>
+                </div>
+            ` : ""}
+
+            ${contacts.length > 0 ? `
+                <div class="biz-contacts">${contacts.join("")}</div>
+            ` : ""}
+
+            ${socials.length > 0 ? `
+                <div class="biz-socials">${socials.join("")}</div>
+            ` : ""}
+        </div>
+    `;
+}
+
+// ============================================================
+// معالجة الصور (Lightbox)
+// ============================================================
+function setupGallery() {
+    document.querySelectorAll(".gallery img, .page-gallery img").forEach(img => {
         img.addEventListener("click", () => {
-            currentImageIndex = parseInt(img.dataset.index);
+            const src = img.src;
+            currentImageIndex = currentImages.indexOf(src);
+            if (currentImageIndex === -1) currentImageIndex = 0;
             openLightbox();
         });
     });
@@ -321,7 +489,9 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "ArrowRight") prevImage();
 });
 
-// ===== تشغيل الموسيقى =====
+// ============================================================
+// الموسيقى
+// ============================================================
 function startMusic(url) {
     bgMusic.src = url;
     bgMusic.volume = 0.5;
@@ -334,15 +504,12 @@ function startMusic(url) {
                 musicToggle.classList.add("playing");
             })
             .catch(() => {
-                // المتصفح منع التشغيل التلقائي → أظهر الزر
                 musicToggle.classList.add("visible");
             });
     };
 
-    // حاول فوراً
     tryPlay();
 
-    // إذا فشل، ابدأ عند أول نقرة على الصفحة
     document.body.addEventListener("click", () => {
         if (!musicStarted) {
             bgMusic.play()
@@ -355,7 +522,6 @@ function startMusic(url) {
     }, { once: true });
 }
 
-// زر تشغيل الموسيقى
 musicToggle?.addEventListener("click", () => {
     if (bgMusic.paused) {
         bgMusic.play();
@@ -369,26 +535,28 @@ musicToggle?.addEventListener("click", () => {
     }
 });
 
-// ===== تأثيرات بصرية =====
+// ============================================================
+// تأثيرات بصرية
+// ============================================================
 function startEffect(type, color) {
     const count = type === "hearts" ? 12 : 20;
-
     for (let i = 0; i < count; i++) {
-        setTimeout(() => {
-            createParticle(type, color);
-        }, i * 400);
+        setTimeout(() => createParticle(type, color), i * 400);
     }
-
-    // استمرار التأثير
-    setInterval(() => {
-        createParticle(type, color);
-    }, 1500);
+    setInterval(() => createParticle(type, color), 1500);
 }
 
 function createParticle(type, color) {
     const el = document.createElement("div");
 
-    if (type === "confetti") {
+    if (type === "hearts") {
+        el.className = "heart";
+        el.innerHTML = "❤";
+        el.style.left = Math.random() * 100 + "%";
+        el.style.color = Math.random() > 0.5 ? "#ec4899" : "#f43f5e";
+        el.style.animationDuration = (6 + Math.random() * 4) + "s";
+        el.style.fontSize = (14 + Math.random() * 14) + "px";
+    } else if (type === "confetti") {
         el.className = "confetti";
         el.style.left = Math.random() * 100 + "%";
         el.style.background = pickColor(color);
@@ -396,25 +564,9 @@ function createParticle(type, color) {
         el.style.width = (6 + Math.random() * 8) + "px";
         el.style.height = (6 + Math.random() * 8) + "px";
         el.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
-    } else if (type === "hearts") {
-        el.className = "heart";
-        el.innerHTML = "❤";
-        el.style.left = Math.random() * 100 + "%";
-        el.style.color = Math.random() > 0.5 ? "#ec4899" : "#f43f5e";
-        el.style.animationDuration = (6 + Math.random() * 4) + "s";
-        el.style.fontSize = (14 + Math.random() * 14) + "px";
-    } else if (type === "stars") {
-        el.className = "star";
-        el.innerHTML = "★";
-        el.style.left = Math.random() * 100 + "%";
-        el.style.color = Math.random() > 0.5 ? "#a855f7" : "#e2b714";
-        el.style.animationDuration = (4 + Math.random() * 3) + "s";
-        el.style.fontSize = (12 + Math.random() * 10) + "px";
     }
 
     document.body.appendChild(el);
-
-    // حذف بعد انتهاء الحركة
     setTimeout(() => el.remove(), 8000);
 }
 
@@ -423,18 +575,18 @@ function pickColor(base) {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// ===== دوال مساعدة =====
+// ============================================================
+// دوال مساعدة
+// ============================================================
 function formatDate(dateStr) {
     try {
         const date = new Date(dateStr);
-        const options = { year: "numeric", month: "long", day: "numeric" };
-        return date.toLocaleDateString("ar-EG", options);
-    } catch {
-        return dateStr;
-    }
+        return date.toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    } catch { return dateStr; }
 }
 
 function escapeHtml(text) {
+    if (!text) return "";
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
