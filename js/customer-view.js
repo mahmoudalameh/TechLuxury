@@ -207,12 +207,32 @@ function renderGiftCard(card, typeInfo) {
 
         ${images.length > 0 ? `
             <h3 class="section-title">
-                <i class="fa-solid fa-images"></i> معرض الصور (${images.length})
+                <i class="fa-solid fa-images"></i> ألبوم الصور (${images.length})
             </h3>
-            <div class="gallery" id="gallery">
-                ${images.map((url, i) => `
-                    <img src="${url}" data-index="${i}" alt="صورة ${i + 1}" loading="lazy">
-                `).join("")}
+            <div class="album-container" id="albumContainer">
+                <div class="album-viewport" id="albumViewport">
+                    <div class="album-counter" id="albumCounter">1 / ${images.length}</div>
+                    ${images.map((url, i) => `
+                        <div class="album-slide ${i === 0 ? "active" : ""}" data-slide="${i}">
+                            <img src="${url}" alt="صورة ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" draggable="false">
+                        </div>
+                    `).join("")}
+                    ${images.length > 1 ? `
+                        <button class="album-nav-btn prev" id="albumPrev" title="السابق">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="album-nav-btn next" id="albumNext" title="التالي">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                    ` : ""}
+                </div>
+                ${images.length > 1 ? `
+                    <div class="album-dots" id="albumDots">
+                        ${images.map((_, i) =>
+                            `<button class="album-dot ${i === 0 ? "active" : ""}" data-dot="${i}" aria-label="صورة ${i + 1}"></button>`
+                        ).join("")}
+                    </div>
+                ` : ""}
             </div>
         ` : ""}
 
@@ -227,6 +247,11 @@ function renderGiftCard(card, typeInfo) {
             </div>
         ` : ""}
     `;
+
+    currentImages = images;
+    // ✅ بدل setupGallery، نستخدم نظام الألبوم
+    setupAlbum();
+}
 
     currentImages = images;
     setupGallery();
