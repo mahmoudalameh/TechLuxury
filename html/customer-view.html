@@ -179,24 +179,153 @@
             background: linear-gradient(to left, transparent, var(--border-color));
         }
 
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-        }
-        .gallery img {
-            width: 100%; aspect-ratio: 1;
-            object-fit: cover;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-            border: 1px solid var(--border-color);
-        }
-        .gallery img:hover {
-            transform: scale(1.03);
-            box-shadow: 0 10px 25px rgba(226, 183, 20, 0.2);
-            border-color: var(--accent);
-        }
+        /* ===== ألبوم الصور (Carousel) ===== */
+.album-container {
+    position: relative;
+    max-width: 100%;
+    margin: 0 auto;
+    user-select: none;
+}
+
+.album-viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #0f172a;
+    cursor: grab;
+    touch-action: pan-y;
+}
+
+.album-viewport:active {
+    cursor: grabbing;
+}
+
+.album-slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    transform: scale(1.05);
+    pointer-events: none;
+}
+
+.album-slide.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+.album-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
+/* أزرار التنقل */
+.album-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+}
+
+.album-nav-btn:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.album-nav-btn.prev {
+    right: 12px;
+}
+
+.album-nav-btn.next {
+    left: 12px;
+}
+
+.album-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* عدّاد الصور */
+.album-counter {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* نقاط التنقل */
+.album-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.album-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border-color);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 0;
+}
+
+.album-dot:hover {
+    background: var(--accent);
+    opacity: 0.7;
+}
+
+.album-dot.active {
+    background: var(--accent);
+    width: 28px;
+    border-radius: 5px;
+}
+
+/* للجوال */
+@media (max-width: 500px) {
+    .album-nav-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+    }
+    .album-nav-btn.prev { right: 8px; }
+    .album-nav-btn.next { left: 8px; }
+}
 
         /* ===== الفيديو ===== */
         .video-wrapper {
