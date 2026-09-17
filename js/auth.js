@@ -131,4 +131,4 @@ onAuthStateChanged(auth, async (user) => {
         await loadUserCards(user.uid);
     }
 });
-});
+
