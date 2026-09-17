@@ -5,7 +5,7 @@ import {
     createUserWithEmailAndPassword,
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, serverTimestamp , getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // ⚠️ استبدل هذه الإعدادات ببيانات مشروعك الخاصة من Firebase
 const firebaseConfig = {
@@ -86,8 +86,49 @@ document.getElementById("authForm").addEventListener("submit", async (e) => {
 });
 
 // التحقق مما إذا كان المستخدم مسجلاً بالفعل
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        window.location.href = "customer-dashboard.html";
+// ===== التحقق من تسجيل الدخول وجلب اسم العميل =====
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        window.location.href = "login.html";
+        return;
     }
+
+    currentUser = user;
+
+    try {
+        // جلب بيانات العميل من Firestore
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+
+        const userNameEl = document.getElementById("userName");
+
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+
+            // عرض اسم العميل
+            if (userNameEl) {
+                userNameEl.textContent = userData.name || "عميلنا";
+            }
+        } else {
+            // في حال لم توجد بيانات المستخدم
+            if (userNameEl) {
+                userNameEl.textContent = "عميلنا";
+            }
+        }
+
+        // تحميل منتجات العميل
+        await loadUserCards(user.uid);
+
+    } catch (error) {
+        console.error("خطأ في جلب بيانات العميل:", error);
+
+        const userNameEl = document.getElementById("userName");
+
+        if (userNameEl) {
+            userNameEl.textContent = "عميلنا";
+        }
+
+        await loadUserCards(user.uid);
+    }
+});
 });
