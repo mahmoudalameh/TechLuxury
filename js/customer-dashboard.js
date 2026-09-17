@@ -92,7 +92,7 @@ const CARD_TYPES = [
     { id: "business_card", label: "بطاقة عمل", icon: "fa-id-card", desc: "بياناتك المهنية ووسائل التواصل" }
 ];
 
-// ===== الحالة =====
+// ===== الحالة العامة =====
 let currentUser = null;
 let currentCard = null;
 let selectedType = null;
@@ -105,9 +105,20 @@ let bizNewLogo = null;
 let bizCurrentLogo = "";
 let newBgMusicFile = null;
 
-// ===== مساعد: إظهار/إخفاء =====
-function show(el) { if (el) el.style.display = ""; }
-function hide(el) { if (el) el.style.display = "none"; }
+// ============================================================
+// 🔧 دوال الإظهار والإخفاء (الإصلاح الأساسي)
+// ============================================================
+function show(el) {
+    if (!el) return;
+    el.classList.remove("hidden");
+    el.style.display = "";
+}
+
+function hide(el) {
+    if (!el) return;
+    el.classList.add("hidden");
+    el.style.display = "";
+}
 
 // ===== توليد معرف =====
 function generateId() {
@@ -165,7 +176,9 @@ document.getElementById("btnClaimCard")?.addEventListener("click", async (e) => 
         alert("✅ تم ربط الكرت بنجاح!");
         cardIdInput.value = "";
         await loadUserCards(currentUser.uid);
-        openEditModal(cardId, { ...data, ownerId: currentUser.uid, type: null });
+
+        // ✅ لا نجبر type = null — نحتفظ بالنوع إن وُجد
+        openEditModal(cardId, { ...data, ownerId: currentUser.uid });
     } catch (error) {
         console.error(error);
         alert("حدث خطأ: " + error.message);
@@ -274,15 +287,21 @@ function openEditModal(cardId, card) {
 
     resetFormState();
 
-    if (card.type) {
-        // الكرت له نوع محدد
-        selectedType = CARD_TYPES.find(t => t.id === card.type);
-        console.log("🔵 النوع المحدد:", selectedType);
+    // تحقق إذا كان للكرت نوع محدد ومدعوم
+    const existingType = card.type ? CARD_TYPES.find(t => t.id === card.type) : null;
+
+    if (existingType) {
+        // ✅ الكرت له نوع مدعوم → أظهر حقوله مباشرة
+        selectedType = existingType;
+        console.log("🔵 النوع المحدد:", selectedType.label);
         hide(stepTypeSelect);
         show(stepCardFields);
         showCardFields(card);
     } else {
-        // عرض اختيار النوع
+        // ⚠️ لا يوجد نوع أو نوع قديم غير مدعوم → أظهر الاختيار
+        if (card.type) {
+            console.warn("⚠️ النوع القديم غير مدعوم:", card.type);
+        }
         selectedType = null;
         console.log("🔵 عرض اختيار النوع");
         renderTypeSelector();
@@ -346,7 +365,10 @@ function resetFormState() {
 
 // ===== تأكيد النوع =====
 document.getElementById("btnConfirmType")?.addEventListener("click", () => {
-    if (!selectedType) return;
+    if (!selectedType) {
+        alert("يرجى اختيار نوع الكرت أولاً");
+        return;
+    }
     console.log("✅ تأكيد النوع:", selectedType.label);
     showCardFields(currentCard || {});
 });
@@ -375,7 +397,7 @@ function showCardFields(card) {
     const modalTitle = document.getElementById("modalTitle");
     if (modalTitle) modalTitle.innerHTML = `<i class="fa-solid ${selectedType.icon}"></i> ${selectedType.label}`;
 
-    // إخفاء كل الأقسام
+    // إخفاء كل الأقسام أولاً
     hide(document.getElementById("giftFields"));
     hide(document.getElementById("bookFields"));
     hide(document.getElementById("businessFields"));
@@ -497,9 +519,10 @@ function createEmptyEvent() {
     };
 }
 
-// ===== عرض صفحات كتاب الذكريات =====
+// ===== خيارات الإيموجي =====
 const EMOJI_OPTIONS = ["❤️", "🎂", "✈️", "🎓", "💍", "🌟", "🎉", "📸", "🎁", "🏖️", "🎊", "🌸", "👶", "🏆", "☕", "🎵"];
 
+// ===== عرض صفحات كتاب الذكريات =====
 function renderEvents() {
     const eventsListEl = document.getElementById("eventsList");
     if (!eventsListEl) return;
@@ -720,7 +743,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         }
         updatePayload.bgMusicUrl = bgMusicUrl;
 
-        // كرت هدية
+        // ========== كرت هدية ==========
         if (selectedType.id === "gift") {
             updatePayload.title = document.getElementById("giftTitle").value.trim();
             updatePayload.message = document.getElementById("giftMessage").value.trim();
@@ -749,7 +772,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             updatePayload.videoUrl = videoUrl;
         }
 
-        // كتاب ذكريات
+        // ========== كتاب ذكريات ==========
         if (selectedType.id === "memory_book") {
             updatePayload.title = document.getElementById("bookTitle").value.trim();
 
@@ -792,7 +815,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             updatePayload.events = finalEvents;
         }
 
-        // بطاقة عمل
+        // ========== بطاقة عمل ==========
         if (selectedType.id === "business_card") {
             updatePayload.name = document.getElementById("bizName").value.trim();
             updatePayload.jobTitle = document.getElementById("bizJobTitle").value.trim();
@@ -819,6 +842,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             updatePayload.logoUrl = logoUrl;
         }
 
+        // الحفظ
         btnSave.innerHTML = "💾 جاري الحفظ...";
         await updateDoc(cardRef, updatePayload);
 
@@ -835,6 +859,6 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
     }
 });
 
-// ===== تشخيص نهائي =====
+// ===== تشخيص =====
 console.log("✅ customer-dashboard.js جاهز");
 console.log("CARD_TYPES:", CARD_TYPES.length, "أنواع");
