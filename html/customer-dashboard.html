@@ -463,7 +463,7 @@
                 <input type="hidden" id="editCardId">
 
                 <!-- 1) اختيار نوع الكرت -->
-                <div id="stepTypeSelect">
+                <div id="stepTypeSelect" class="hidden">
                     <h3 class="section-title"><i class="fa-solid fa-list"></i> اختر نوع الكرت</h3>
                     <div class="type-selector" id="typeSelector"></div>
                     <button type="button" id="btnConfirmType" class="btn-save" style="margin-top:20px;" disabled>
@@ -474,7 +474,7 @@
                 <!-- 2) حقول الكرت -->
                 <div id="stepCardFields" class="hidden">
 
-                    <!-- ========== نوع 1: كرت هدية ========== -->
+                    <!-- نوع 1: كرت هدية -->
                     <div id="giftFields" class="hidden">
                         <div class="form-group">
                             <label>عنوان الهدية</label>
@@ -504,7 +504,7 @@
                         </div>
                     </div>
 
-                    <!-- ========== نوع 2: كتاب ذكريات ========== -->
+                    <!-- نوع 2: كتاب ذكريات -->
                     <div id="bookFields" class="hidden">
                         <div class="form-group">
                             <label>عنوان الكتاب</label>
@@ -523,7 +523,7 @@
                         </button>
                     </div>
 
-                    <!-- ========== نوع 3: بطاقة عمل ========== -->
+                    <!-- نوع 3: بطاقة عمل -->
                     <div id="businessFields" class="hidden">
                         <div class="form-group">
                             <label>الاسم الكامل</label>
