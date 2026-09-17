@@ -6,7 +6,7 @@ import {
     getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ===== إعدادات Firebase =====
+// ===== Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
   authDomain: "techluxury-4b854.firebaseapp.com",
@@ -85,62 +85,29 @@ async function compressImage(file, maxWidth = 1920, quality = 0.85) {
     });
 }
 
-// ===== أنواع الكروت الجديدة (3 أنواع فقط) =====
+// ===== أنواع الكروت =====
 const CARD_TYPES = [
-    {
-        id: "gift",
-        label: "كرت هدية",
-        icon: "fa-gift",
-        desc: "صور + فيديو + موسيقى + رسالة"
-    },
-    {
-        id: "memory_book",
-        label: "كتاب ذكريات",
-        icon: "fa-book-open",
-        desc: "صفحات متعددة لكل مناسبة"
-    },
-    {
-        id: "business_card",
-        label: "بطاقة عمل",
-        icon: "fa-id-card",
-        desc: "بياناتك المهنية ووسائل التواصل"
-    }
+    { id: "gift", label: "كرت هدية", icon: "fa-gift", desc: "صور + فيديو + موسيقى + رسالة" },
+    { id: "memory_book", label: "كتاب ذكريات", icon: "fa-book-open", desc: "صفحات متعددة لكل مناسبة" },
+    { id: "business_card", label: "بطاقة عمل", icon: "fa-id-card", desc: "بياناتك المهنية ووسائل التواصل" }
 ];
 
-// ===== الحالة العامة =====
+// ===== الحالة =====
 let currentUser = null;
 let currentCard = null;
 let selectedType = null;
-let eventsState = []; // مناسبات كتاب الذكريات
-
-// حالة الملفات لكل نوع
+let eventsState = [];
 let giftNewImages = [];
 let giftCurrentImages = [];
 let giftImagesToDelete = [];
 let giftNewVideo = null;
-
 let bizNewLogo = null;
 let bizCurrentLogo = "";
-
 let newBgMusicFile = null;
 
-// ===== عناصر الصفحة =====
-const userEmailEl = document.getElementById("userEmail");
-const btnLogout = document.getElementById("btnLogout");
-const btnClaimCard = document.getElementById("btnClaimCard");
-const cardIdInput = document.getElementById("cardIdInput");
-const myCardsList = document.getElementById("myCardsList");
-const editModal = document.getElementById("editModal");
-const editCardForm = document.getElementById("editCardForm");
-const btnCloseModal = document.getElementById("btnCloseModal");
-const modalTitle = document.getElementById("modalTitle");
-const stepTypeSelect = document.getElementById("stepTypeSelect");
-const stepCardFields = document.getElementById("stepCardFields");
-const typeSelector = document.getElementById("typeSelector");
-const btnConfirmType = document.getElementById("btnConfirmType");
-const btnChangeType = document.getElementById("btnChangeType");
-const eventsListEl = document.getElementById("eventsList");
-const btnAddEvent = document.getElementById("btnAddEvent");
+// ===== مساعد: إظهار/إخفاء =====
+function show(el) { if (el) el.style.display = ""; }
+function hide(el) { if (el) el.style.display = "none"; }
 
 // ===== توليد معرف =====
 function generateId() {
@@ -151,66 +118,66 @@ function generateId() {
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "login.html"; return; }
     currentUser = user;
+    const userEmailEl = document.getElementById("userEmail");
     if (userEmailEl) userEmailEl.textContent = user.email;
     await loadUserCards(user.uid);
 });
 
 // ===== تسجيل الخروج =====
-if (btnLogout) {
-    btnLogout.addEventListener("click", async () => {
-        await signOut(auth);
-        window.location.href = "login.html";
-    });
-}
+document.getElementById("btnLogout")?.addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "login.html";
+});
 
 // ===== ربط الكرت =====
-if (btnClaimCard) {
-    btnClaimCard.addEventListener("click", async (e) => {
-        e.preventDefault();
-        const cardId = cardIdInput.value.trim().toUpperCase();
-        if (!cardId) { alert("الرجاء إدخال رمز الكرت"); return; }
-        if (!currentUser) { alert("يجب تسجيل الدخول أولاً"); return; }
+document.getElementById("btnClaimCard")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    const cardIdInput = document.getElementById("cardIdInput");
+    const cardId = cardIdInput.value.trim().toUpperCase();
 
-        btnClaimCard.disabled = true;
-        btnClaimCard.innerText = "جاري الربط...";
+    if (!cardId) { alert("الرجاء إدخال رمز الكرت"); return; }
+    if (!currentUser) { alert("يجب تسجيل الدخول أولاً"); return; }
 
-        try {
-            const cardRef = doc(db, "cards", cardId);
-            const cardSnap = await getDoc(cardRef);
-            if (!cardSnap.exists()) { alert("❌ هذا الكرت غير موجود"); return; }
+    btn.disabled = true;
+    btn.innerText = "جاري الربط...";
 
-            const data = cardSnap.data();
-            if (data.ownerId && data.ownerId !== currentUser.uid) {
-                alert("❌ هذا الكرت مربوط بحساب آخر"); return;
-            }
-            if (data.ownerId === currentUser.uid) {
-                alert("⚠️ هذا الكرت مربوط بحسابك بالفعل"); return;
-            }
+    try {
+        const cardRef = doc(db, "cards", cardId);
+        const cardSnap = await getDoc(cardRef);
+        if (!cardSnap.exists()) { alert("❌ هذا الكرت غير موجود"); return; }
 
-            await updateDoc(cardRef, {
-                ownerId: currentUser.uid,
-                ownerEmail: currentUser.email,
-                claimedAt: serverTimestamp(),
-                type: data.type || null
-            });
-
-            alert("✅ تم ربط الكرت بنجاح!");
-            cardIdInput.value = "";
-            await loadUserCards(currentUser.uid);
-            openEditModal(cardId, { ...data, ownerId: currentUser.uid, type: null });
-
-        } catch (error) {
-            console.error(error);
-            alert("حدث خطأ: " + error.message);
-        } finally {
-            btnClaimCard.disabled = false;
-            btnClaimCard.innerText = "ربط الكرت";
+        const data = cardSnap.data();
+        if (data.ownerId && data.ownerId !== currentUser.uid) {
+            alert("❌ هذا الكرت مربوط بحساب آخر"); return;
         }
-    });
-}
+        if (data.ownerId === currentUser.uid) {
+            alert("⚠️ هذا الكرت مربوط بحسابك بالفعل"); return;
+        }
 
-// ===== تحميل كروت المستخدم =====
+        await updateDoc(cardRef, {
+            ownerId: currentUser.uid,
+            ownerEmail: currentUser.email,
+            claimedAt: serverTimestamp(),
+            type: data.type || null
+        });
+
+        alert("✅ تم ربط الكرت بنجاح!");
+        cardIdInput.value = "";
+        await loadUserCards(currentUser.uid);
+        openEditModal(cardId, { ...data, ownerId: currentUser.uid, type: null });
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطأ: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "ربط الكرت";
+    }
+});
+
+// ===== تحميل الكروت =====
 async function loadUserCards(uid) {
+    const myCardsList = document.getElementById("myCardsList");
     if (!myCardsList) return;
     myCardsList.innerHTML = "<p style='color:#94a3b8;'>جاري التحميل...</p>";
 
@@ -229,15 +196,14 @@ async function loadUserCards(uid) {
             const cardId = docSnap.id;
             const type = CARD_TYPES.find(t => t.id === card.type);
 
-            const cardEl = document.createElement("div");
-            cardEl.className = "my-card";
-
             const badge = type
                 ? `<div class="card-type-badge"><i class="fa-solid ${type.icon}"></i> ${type.label}</div>`
                 : `<div class="card-type-badge" style="color:#f87171;border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);">
                     <i class="fa-solid fa-exclamation-triangle"></i> لم يتم تحديد النوع
                    </div>`;
 
+            const cardEl = document.createElement("div");
+            cardEl.className = "my-card";
             cardEl.innerHTML = `
                 ${badge}
                 <div>
@@ -262,7 +228,11 @@ async function loadUserCards(uid) {
 
 // ===== عرض أنواع الكروت =====
 function renderTypeSelector() {
+    const typeSelector = document.getElementById("typeSelector");
+    if (!typeSelector) { console.error("❌ typeSelector غير موجود"); return; }
+
     typeSelector.innerHTML = "";
+
     CARD_TYPES.forEach(t => {
         const option = document.createElement("div");
         option.className = "type-option";
@@ -272,33 +242,57 @@ function renderTypeSelector() {
             <span>${t.label}</span>
             <small>${t.desc}</small>
         `;
+
         option.addEventListener("click", () => {
-            typeSelector.querySelectorAll(".type-option").forEach(el => el.classList.remove("selected"));
+            document.querySelectorAll(".type-option").forEach(el => el.classList.remove("selected"));
             option.classList.add("selected");
             selectedType = t;
-            btnConfirmType.disabled = false;
+            const btnConfirmType = document.getElementById("btnConfirmType");
+            if (btnConfirmType) btnConfirmType.disabled = false;
+            console.log("✅ تم اختيار النوع:", t.label);
         });
+
         typeSelector.appendChild(option);
     });
+
+    console.log("✅ تم عرض", CARD_TYPES.length, "أنواع في typeSelector");
 }
 
 // ===== فتح نافذة التعديل =====
 function openEditModal(cardId, card) {
+    console.log("🔵 فتح نافذة التعديل للكرت:", cardId, "النوع:", card.type);
+
     currentCard = { ...card, id: cardId };
 
-    document.getElementById("editCardId").value = cardId;
+    const editCardIdEl = document.getElementById("editCardId");
+    const stepTypeSelect = document.getElementById("stepTypeSelect");
+    const stepCardFields = document.getElementById("stepCardFields");
+    const modalTitle = document.getElementById("modalTitle");
+    const editModal = document.getElementById("editModal");
+
+    if (editCardIdEl) editCardIdEl.value = cardId;
+
     resetFormState();
 
     if (card.type) {
+        // الكرت له نوع محدد
         selectedType = CARD_TYPES.find(t => t.id === card.type);
+        console.log("🔵 النوع المحدد:", selectedType);
+        hide(stepTypeSelect);
+        show(stepCardFields);
         showCardFields(card);
     } else {
+        // عرض اختيار النوع
         selectedType = null;
+        console.log("🔵 عرض اختيار النوع");
         renderTypeSelector();
-        btnConfirmType.disabled = true;
-        stepTypeSelect.classList.remove("hidden");
-        stepCardFields.classList.add("hidden");
-        modalTitle.innerHTML = `<i class="fa-solid fa-list"></i> اختر نوع الكرت`;
+        const btnConfirmType = document.getElementById("btnConfirmType");
+        if (btnConfirmType) btnConfirmType.disabled = true;
+        show(stepTypeSelect);
+        hide(stepCardFields);
+        if (modalTitle) {
+            modalTitle.innerHTML = `<i class="fa-solid fa-list"></i> اختر نوع الكرت`;
+        }
     }
 
     editModal.classList.add("active");
@@ -315,78 +309,80 @@ function resetFormState() {
     newBgMusicFile = null;
     eventsState = [];
 
-    // نص
-    document.getElementById("giftTitle").value = "";
-    document.getElementById("giftMessage").value = "";
-    document.getElementById("bookTitle").value = "";
-    document.getElementById("bizName").value = "";
-    document.getElementById("bizJobTitle").value = "";
-    document.getElementById("bizCompany").value = "";
-    document.getElementById("bizBio").value = "";
-    document.getElementById("bizServices").value = "";
-    document.getElementById("bizPhone").value = "";
-    document.getElementById("bizEmail").value = "";
-    document.getElementById("bizWebsite").value = "";
-    document.getElementById("bizAddress").value = "";
-    document.getElementById("bizInstagram").value = "";
-    document.getElementById("bizFacebook").value = "";
-    document.getElementById("bizLinkedin").value = "";
+    const ids = [
+        "giftTitle", "giftMessage", "bookTitle", "bizName", "bizJobTitle",
+        "bizCompany", "bizBio", "bizServices", "bizPhone", "bizEmail",
+        "bizWebsite", "bizAddress", "bizInstagram", "bizFacebook", "bizLinkedin"
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
 
-    // ملفات
-    document.getElementById("giftImages").value = "";
-    document.getElementById("giftVideo").value = "";
-    document.getElementById("bizLogo").value = "";
-    document.getElementById("editBgMusic").value = "";
+    const fileIds = ["giftImages", "giftVideo", "bizLogo", "editBgMusic"];
+    fileIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
 
-    // حالات
-    document.getElementById("giftImagesStatus").textContent = "";
-    document.getElementById("giftVideoStatus").textContent = "";
-    document.getElementById("bizLogoStatus").textContent = "";
-    document.getElementById("bgMusicStatus").textContent = "";
-    document.getElementById("giftCurrentImages").innerHTML = "";
-    document.getElementById("giftImagesCount").textContent = "0";
-    document.getElementById("bizLogoContainer").innerHTML = "";
-    eventsListEl.innerHTML = "";
+    const statusIds = ["giftImagesStatus", "giftVideoStatus", "bizLogoStatus", "bgMusicStatus"];
+    statusIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = "";
+    });
+
+    const giftCurrentImagesEl = document.getElementById("giftCurrentImages");
+    if (giftCurrentImagesEl) giftCurrentImagesEl.innerHTML = "";
+
+    const giftImagesCountEl = document.getElementById("giftImagesCount");
+    if (giftImagesCountEl) giftImagesCountEl.textContent = "0";
+
+    const bizLogoContainerEl = document.getElementById("bizLogoContainer");
+    if (bizLogoContainerEl) bizLogoContainerEl.innerHTML = "";
+
+    const eventsListEl = document.getElementById("eventsList");
+    if (eventsListEl) eventsListEl.innerHTML = "";
 }
 
 // ===== تأكيد النوع =====
-if (btnConfirmType) {
-    btnConfirmType.addEventListener("click", () => {
-        if (!selectedType) return;
-        showCardFields(currentCard || {});
-    });
-}
+document.getElementById("btnConfirmType")?.addEventListener("click", () => {
+    if (!selectedType) return;
+    console.log("✅ تأكيد النوع:", selectedType.label);
+    showCardFields(currentCard || {});
+});
 
 // ===== تغيير النوع =====
-if (btnChangeType) {
-    btnChangeType.addEventListener("click", () => {
-        if (!confirm("سيتم فقدان التغييرات غير المحفوظة. متابعة؟")) return;
-        selectedType = null;
-        resetFormState();
-        renderTypeSelector();
-        btnConfirmType.disabled = true;
-        stepTypeSelect.classList.remove("hidden");
-        stepCardFields.classList.add("hidden");
-        modalTitle.innerHTML = `<i class="fa-solid fa-list"></i> اختر نوع الكرت`;
-    });
-}
+document.getElementById("btnChangeType")?.addEventListener("click", () => {
+    if (!confirm("سيتم فقدان التغييرات غير المحفوظة. متابعة؟")) return;
+    selectedType = null;
+    resetFormState();
+    renderTypeSelector();
+    const btnConfirmType = document.getElementById("btnConfirmType");
+    if (btnConfirmType) btnConfirmType.disabled = true;
+    show(document.getElementById("stepTypeSelect"));
+    hide(document.getElementById("stepCardFields"));
+    const modalTitle = document.getElementById("modalTitle");
+    if (modalTitle) modalTitle.innerHTML = `<i class="fa-solid fa-list"></i> اختر نوع الكرت`;
+});
 
 // ===== عرض الحقول حسب النوع =====
 function showCardFields(card) {
     if (!selectedType) return;
 
-    stepTypeSelect.classList.add("hidden");
-    stepCardFields.classList.remove("hidden");
-    modalTitle.innerHTML = `<i class="fa-solid ${selectedType.icon}"></i> ${selectedType.label}`;
+    hide(document.getElementById("stepTypeSelect"));
+    show(document.getElementById("stepCardFields"));
 
-    // إخفاء كل الأقسام أولاً
-    document.getElementById("giftFields").classList.add("hidden");
-    document.getElementById("bookFields").classList.add("hidden");
-    document.getElementById("businessFields").classList.add("hidden");
+    const modalTitle = document.getElementById("modalTitle");
+    if (modalTitle) modalTitle.innerHTML = `<i class="fa-solid ${selectedType.icon}"></i> ${selectedType.label}`;
+
+    // إخفاء كل الأقسام
+    hide(document.getElementById("giftFields"));
+    hide(document.getElementById("bookFields"));
+    hide(document.getElementById("businessFields"));
 
     // ========== كرت هدية ==========
     if (selectedType.id === "gift") {
-        document.getElementById("giftFields").classList.remove("hidden");
+        show(document.getElementById("giftFields"));
         document.getElementById("giftTitle").value = card.title || "";
         document.getElementById("giftMessage").value = card.message || "";
 
@@ -395,13 +391,13 @@ function showCardFields(card) {
         renderGiftImages();
 
         if (card.videoUrl) {
-            document.getElementById("giftVideoStatus").textContent = "✅ يوجد فيديو محفوظ (سيتم استبداله إذا رفعت جديداً)";
+            document.getElementById("giftVideoStatus").textContent = "✅ يوجد فيديو محفوظ";
         }
     }
 
     // ========== كتاب ذكريات ==========
     if (selectedType.id === "memory_book") {
-        document.getElementById("bookFields").classList.remove("hidden");
+        show(document.getElementById("bookFields"));
         document.getElementById("bookTitle").value = card.title || "";
 
         eventsState = JSON.parse(JSON.stringify(card.events || []));
@@ -411,7 +407,7 @@ function showCardFields(card) {
 
     // ========== بطاقة عمل ==========
     if (selectedType.id === "business_card") {
-        document.getElementById("businessFields").classList.remove("hidden");
+        show(document.getElementById("businessFields"));
         document.getElementById("bizName").value = card.name || "";
         document.getElementById("bizJobTitle").value = card.jobTitle || "";
         document.getElementById("bizCompany").value = card.company || "";
@@ -435,10 +431,12 @@ function showCardFields(card) {
     }
 }
 
-// ===== كرت هدية: عرض الصور =====
+// ===== عرض صور كرت الهدية =====
 function renderGiftImages() {
     const container = document.getElementById("giftCurrentImages");
-    document.getElementById("giftImagesCount").textContent = giftCurrentImages.length;
+    const countEl = document.getElementById("giftImagesCount");
+    if (countEl) countEl.textContent = giftCurrentImages.length;
+    if (!container) return;
 
     if (giftCurrentImages.length === 0) {
         container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا توجد صور محفوظة.</p>";
@@ -461,9 +459,11 @@ function renderGiftImages() {
     });
 }
 
-// ===== بطاقة عمل: عرض اللوجو =====
+// ===== عرض شعار بطاقة العمل =====
 function renderBizLogo() {
     const container = document.getElementById("bizLogoContainer");
+    if (!container) return;
+
     if (!bizCurrentLogo) {
         container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا يوجد شعار محفوظ.</p>";
         return;
@@ -482,7 +482,7 @@ function renderBizLogo() {
     });
 }
 
-// ===== كتاب الذكريات: إنشاء صفحة فارغة =====
+// ===== إنشاء صفحة فارغة =====
 function createEmptyEvent() {
     return {
         id: generateId(),
@@ -497,16 +497,17 @@ function createEmptyEvent() {
     };
 }
 
-// ===== عرض مناسبات كتاب الذكريات =====
+// ===== عرض صفحات كتاب الذكريات =====
 const EMOJI_OPTIONS = ["❤️", "🎂", "✈️", "🎓", "💍", "🌟", "🎉", "📸", "🎁", "🏖️", "🎊", "🌸", "👶", "🏆", "☕", "🎵"];
 
 function renderEvents() {
+    const eventsListEl = document.getElementById("eventsList");
+    if (!eventsListEl) return;
     eventsListEl.innerHTML = "";
 
     eventsState.forEach((evt, index) => {
         const el = document.createElement("div");
         el.className = "event-card";
-        el.dataset.index = index;
 
         el.innerHTML = `
             <div class="event-card-header">
@@ -540,7 +541,7 @@ function renderEvents() {
 
             <div class="form-group">
                 <label>الرسالة / الذكرى</label>
-                <textarea class="evt-message" data-field="message" rows="3" placeholder="اكتب ما حدث في هذه المناسبة...">${evt.message || ""}</textarea>
+                <textarea class="evt-message" data-field="message" rows="3" placeholder="اكتب ما حدث...">${evt.message || ""}</textarea>
             </div>
 
             <div class="form-group">
@@ -595,17 +596,14 @@ function renderEvents() {
             }
         });
 
-        // عرض الصور الحالية
         renderEventImages(index);
 
-        // رفع صور
         el.querySelector(".evt-images").addEventListener("change", (e) => {
             eventsState[index]._newImages = Array.from(e.target.files);
             const status = el.querySelector(`.evt-images-status[data-index="${index}"]`);
             if (status) status.textContent = `📎 ${e.target.files.length} صورة جديدة جاهزة`;
         });
 
-        // رفع فيديو
         el.querySelector(".evt-video").addEventListener("change", (e) => {
             eventsState[index]._newVideo = e.target.files[0] || null;
             const status = el.querySelector(`.evt-video-status[data-index="${index}"]`);
@@ -650,17 +648,15 @@ function renderEventImages(index) {
     });
 }
 
-// ===== إضافة صفحة جديدة =====
-if (btnAddEvent) {
-    btnAddEvent.addEventListener("click", () => {
-        eventsState.push(createEmptyEvent());
-        renderEvents();
-        const modalCard = editModal.querySelector(".modal-card");
-        setTimeout(() => modalCard.scrollTop = modalCard.scrollHeight, 100);
-    });
-}
+// ===== إضافة صفحة =====
+document.getElementById("btnAddEvent")?.addEventListener("click", () => {
+    eventsState.push(createEmptyEvent());
+    renderEvents();
+    const modalCard = document.querySelector(".modal-card");
+    if (modalCard) setTimeout(() => modalCard.scrollTop = modalCard.scrollHeight, 100);
+});
 
-// ===== رفع الصور (هدية) =====
+// ===== رفع الملفات =====
 document.getElementById("giftImages")?.addEventListener("change", (e) => {
     giftNewImages = Array.from(e.target.files);
     document.getElementById("giftImagesStatus").textContent =
@@ -670,7 +666,7 @@ document.getElementById("giftImages")?.addEventListener("change", (e) => {
 document.getElementById("giftVideo")?.addEventListener("change", (e) => {
     giftNewVideo = e.target.files[0] || null;
     document.getElementById("giftVideoStatus").textContent =
-        giftNewVideo ? "📎 فيديو جديد جاهز" : (currentCard?.videoUrl ? "✅ يوجد فيديو محفوظ" : "");
+        giftNewVideo ? "📎 فيديو جديد جاهز" : "";
 });
 
 document.getElementById("bizLogo")?.addEventListener("change", (e) => {
@@ -682,175 +678,163 @@ document.getElementById("bizLogo")?.addEventListener("change", (e) => {
 document.getElementById("editBgMusic")?.addEventListener("change", (e) => {
     newBgMusicFile = e.target.files[0] || null;
     document.getElementById("bgMusicStatus").textContent =
-        newBgMusicFile ? "📎 موسيقى جديدة جاهزة" : (currentCard?.bgMusicUrl ? "✅ توجد موسيقى محفوظة" : "");
+        newBgMusicFile ? "📎 موسيقى جديدة جاهزة" : "";
 });
 
 // ===== إغلاق النافذة =====
-if (btnCloseModal) {
-    btnCloseModal.addEventListener("click", () => {
-        editModal.classList.remove("active");
-    });
-}
+document.getElementById("btnCloseModal")?.addEventListener("click", () => {
+    document.getElementById("editModal").classList.remove("active");
+});
 
 // ===== حفظ الكرت =====
-if (editCardForm) {
-    editCardForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
+document.getElementById("editCardForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-        if (!selectedType) { alert("الرجاء اختيار نوع الكرت أولاً"); return; }
+    if (!selectedType) { alert("الرجاء اختيار نوع الكرت أولاً"); return; }
 
-        const cardId = document.getElementById("editCardId").value;
-        const btnSave = document.getElementById("btnSaveData");
-        const originalText = btnSave.innerHTML;
-        btnSave.disabled = true;
+    const cardId = document.getElementById("editCardId").value;
+    const btnSave = document.getElementById("btnSaveData");
+    const originalText = btnSave.innerHTML;
+    btnSave.disabled = true;
 
-        try {
-            const cardRef = doc(db, "cards", cardId);
-            const cardSnap = await getDoc(cardRef);
-            if (!cardSnap.exists() || cardSnap.data().ownerId !== currentUser.uid) {
-                throw new Error("غير مصرح لك بتعديل هذا الكرت");
+    try {
+        const cardRef = doc(db, "cards", cardId);
+        const cardSnap = await getDoc(cardRef);
+        if (!cardSnap.exists() || cardSnap.data().ownerId !== currentUser.uid) {
+            throw new Error("غير مصرح لك بتعديل هذا الكرت");
+        }
+
+        const oldData = cardSnap.data();
+        const updatePayload = {
+            type: selectedType.id,
+            updatedAt: serverTimestamp()
+        };
+
+        // الموسيقى
+        let bgMusicUrl = oldData.bgMusicUrl || "";
+        if (newBgMusicFile) {
+            btnSave.innerHTML = "🎵 جاري رفع الموسيقى...";
+            bgMusicUrl = await uploadToCloudinary(newBgMusicFile, "auto", (p) => {
+                btnSave.innerHTML = `🎵 رفع الموسيقى — ${p}%`;
+            });
+        }
+        updatePayload.bgMusicUrl = bgMusicUrl;
+
+        // كرت هدية
+        if (selectedType.id === "gift") {
+            updatePayload.title = document.getElementById("giftTitle").value.trim();
+            updatePayload.message = document.getElementById("giftMessage").value.trim();
+
+            let finalImages = giftCurrentImages.filter(url => !giftImagesToDelete.includes(url));
+            if (giftNewImages.length > 0) {
+                for (let i = 0; i < giftNewImages.length; i++) {
+                    btnSave.innerHTML = `📸 ضغط الصورة ${i + 1}/${giftNewImages.length}...`;
+                    const compressed = await compressImage(giftNewImages[i]);
+                    btnSave.innerHTML = `📤 رفع الصورة ${i + 1}/${giftNewImages.length}...`;
+                    const url = await uploadToCloudinary(compressed, "image", (p) => {
+                        btnSave.innerHTML = `📤 صورة ${i + 1}/${giftNewImages.length} — ${p}%`;
+                    });
+                    finalImages.push(url);
+                }
             }
+            updatePayload.images = finalImages;
 
-            const oldData = cardSnap.data();
-            const updatePayload = {
-                type: selectedType.id,
-                updatedAt: serverTimestamp()
-            };
-
-            // 🎵 الموسيقى
-            let bgMusicUrl = oldData.bgMusicUrl || "";
-            if (newBgMusicFile) {
-                btnSave.innerHTML = "🎵 جاري رفع الموسيقى...";
-                bgMusicUrl = await uploadToCloudinary(newBgMusicFile, "auto", (p) => {
-                    btnSave.innerHTML = `🎵 رفع الموسيقى — ${p}%`;
+            let videoUrl = oldData.videoUrl || "";
+            if (giftNewVideo) {
+                btnSave.innerHTML = "🎬 جاري رفع الفيديو...";
+                videoUrl = await uploadToCloudinary(giftNewVideo, "video", (p) => {
+                    btnSave.innerHTML = `🎬 رفع الفيديو — ${p}%`;
                 });
             }
-            updatePayload.bgMusicUrl = bgMusicUrl;
-
-            // ========== نوع 1: كرت هدية ==========
-            if (selectedType.id === "gift") {
-                updatePayload.title = document.getElementById("giftTitle").value.trim();
-                updatePayload.message = document.getElementById("giftMessage").value.trim();
-
-                // الصور
-                let finalImages = giftCurrentImages.filter(url => !giftImagesToDelete.includes(url));
-                if (giftNewImages.length > 0) {
-                    for (let i = 0; i < giftNewImages.length; i++) {
-                        btnSave.innerHTML = `📸 ضغط الصورة ${i + 1}/${giftNewImages.length}...`;
-                        const compressed = await compressImage(giftNewImages[i]);
-                        btnSave.innerHTML = `📤 رفع الصورة ${i + 1}/${giftNewImages.length}...`;
-                        const url = await uploadToCloudinary(compressed, "image", (p) => {
-                            btnSave.innerHTML = `📤 صورة ${i + 1}/${giftNewImages.length} — ${p}%`;
-                        });
-                        finalImages.push(url);
-                    }
-                }
-                updatePayload.images = finalImages;
-
-                // الفيديو
-                let videoUrl = oldData.videoUrl || "";
-                if (giftNewVideo) {
-                    btnSave.innerHTML = "🎬 جاري رفع الفيديو...";
-                    videoUrl = await uploadToCloudinary(giftNewVideo, "video", (p) => {
-                        btnSave.innerHTML = `🎬 رفع الفيديو — ${p}%`;
-                    });
-                }
-                updatePayload.videoUrl = videoUrl;
-            }
-
-            // ========== نوع 2: كتاب ذكريات ==========
-            if (selectedType.id === "memory_book") {
-                updatePayload.title = document.getElementById("bookTitle").value.trim();
-
-                const finalEvents = [];
-                for (let i = 0; i < eventsState.length; i++) {
-                    const evt = eventsState[i];
-                    btnSave.innerHTML = `⏳ معالجة الصفحة ${i + 1}/${eventsState.length}...`;
-
-                    const processedEvent = {
-                        id: evt.id,
-                        emoji: evt.emoji || "📌",
-                        title: evt.title || "",
-                        date: evt.date || "",
-                        message: evt.message || "",
-                        images: [...(evt.images || [])],
-                        videoUrl: evt.videoUrl || ""
-                    };
-
-                    // رفع صور الصفحة
-                    if (evt._newImages && evt._newImages.length > 0) {
-                        for (let j = 0; j < evt._newImages.length; j++) {
-                            btnSave.innerHTML = `📸 صفحة ${i + 1}: ضغط صورة ${j + 1}/${evt._newImages.length}...`;
-                            const compressed = await compressImage(evt._newImages[j]);
-                            btnSave.innerHTML = `📤 صفحة ${i + 1}: رفع صورة ${j + 1}/${evt._newImages.length}...`;
-                            const url = await uploadToCloudinary(compressed, "image", (p) => {
-                                btnSave.innerHTML = `📤 صفحة ${i + 1} - صورة ${j + 1} — ${p}%`;
-                            });
-                            processedEvent.images.push(url);
-                        }
-                    }
-
-                    // رفع فيديو الصفحة
-                    if (evt._newVideo) {
-                        btnSave.innerHTML = `🎬 صفحة ${i + 1}: رفع الفيديو...`;
-                        processedEvent.videoUrl = await uploadToCloudinary(evt._newVideo, "video", (p) => {
-                            btnSave.innerHTML = `🎬 صفحة ${i + 1} - فيديو — ${p}%`;
-                        });
-                    }
-
-                    finalEvents.push(processedEvent);
-                }
-                updatePayload.events = finalEvents;
-            }
-
-            // ========== نوع 3: بطاقة عمل ==========
-            if (selectedType.id === "business_card") {
-                updatePayload.name = document.getElementById("bizName").value.trim();
-                updatePayload.jobTitle = document.getElementById("bizJobTitle").value.trim();
-                updatePayload.company = document.getElementById("bizCompany").value.trim();
-                updatePayload.bio = document.getElementById("bizBio").value.trim();
-                updatePayload.services = document.getElementById("bizServices").value.trim();
-                updatePayload.phone = document.getElementById("bizPhone").value.trim();
-                updatePayload.email = document.getElementById("bizEmail").value.trim();
-                updatePayload.website = document.getElementById("bizWebsite").value.trim();
-                updatePayload.address = document.getElementById("bizAddress").value.trim();
-                updatePayload.instagram = document.getElementById("bizInstagram").value.trim();
-                updatePayload.facebook = document.getElementById("bizFacebook").value.trim();
-                updatePayload.linkedin = document.getElementById("bizLinkedin").value.trim();
-                updatePayload.title = updatePayload.name || updatePayload.company || "بطاقة عمل";
-
-                // اللوجو
-                let logoUrl = bizCurrentLogo;
-                if (bizNewLogo) {
-                    btnSave.innerHTML = "🖼️ جاري رفع الشعار...";
-                    const compressed = await compressImage(bizNewLogo);
-                    logoUrl = await uploadToCloudinary(compressed, "image", (p) => {
-                        btnSave.innerHTML = `🖼️ رفع الشعار — ${p}%`;
-                    });
-                }
-                updatePayload.logoUrl = logoUrl;
-            }
-
-            // 💾 الحفظ
-            btnSave.innerHTML = "💾 جاري الحفظ...";
-            await updateDoc(cardRef, updatePayload);
-
-            alert("✅ تم حفظ الكرت بنجاح!");
-            editModal.classList.remove("active");
-            await loadUserCards(currentUser.uid);
-
-        } catch (error) {
-            console.error(error);
-            alert("حدث خطأ: " + error.message);
-        } finally {
-            btnSave.innerHTML = originalText;
-            btnSave.disabled = false;
+            updatePayload.videoUrl = videoUrl;
         }
-    });
-    // 🛡️ تشخيص
 
-}
-console.log("✅ customer-dashboard.js تم تحميله");
-console.log("CARD_TYPES:", typeof CARD_TYPES, CARD_TYPES);
-console.log("renderTypeSelector:", typeof renderTypeSelector);
-console.log("typeSelector element:", document.getElementById("typeSelector"));
+        // كتاب ذكريات
+        if (selectedType.id === "memory_book") {
+            updatePayload.title = document.getElementById("bookTitle").value.trim();
+
+            const finalEvents = [];
+            for (let i = 0; i < eventsState.length; i++) {
+                const evt = eventsState[i];
+                btnSave.innerHTML = `⏳ معالجة الصفحة ${i + 1}/${eventsState.length}...`;
+
+                const processedEvent = {
+                    id: evt.id,
+                    emoji: evt.emoji || "📌",
+                    title: evt.title || "",
+                    date: evt.date || "",
+                    message: evt.message || "",
+                    images: [...(evt.images || [])],
+                    videoUrl: evt.videoUrl || ""
+                };
+
+                if (evt._newImages && evt._newImages.length > 0) {
+                    for (let j = 0; j < evt._newImages.length; j++) {
+                        btnSave.innerHTML = `📸 صفحة ${i + 1}: ضغط صورة ${j + 1}/${evt._newImages.length}...`;
+                        const compressed = await compressImage(evt._newImages[j]);
+                        btnSave.innerHTML = `📤 صفحة ${i + 1}: رفع صورة ${j + 1}/${evt._newImages.length}...`;
+                        const url = await uploadToCloudinary(compressed, "image", (p) => {
+                            btnSave.innerHTML = `📤 صفحة ${i + 1} - صورة ${j + 1} — ${p}%`;
+                        });
+                        processedEvent.images.push(url);
+                    }
+                }
+
+                if (evt._newVideo) {
+                    btnSave.innerHTML = `🎬 صفحة ${i + 1}: رفع الفيديو...`;
+                    processedEvent.videoUrl = await uploadToCloudinary(evt._newVideo, "video", (p) => {
+                        btnSave.innerHTML = `🎬 صفحة ${i + 1} - فيديو — ${p}%`;
+                    });
+                }
+
+                finalEvents.push(processedEvent);
+            }
+            updatePayload.events = finalEvents;
+        }
+
+        // بطاقة عمل
+        if (selectedType.id === "business_card") {
+            updatePayload.name = document.getElementById("bizName").value.trim();
+            updatePayload.jobTitle = document.getElementById("bizJobTitle").value.trim();
+            updatePayload.company = document.getElementById("bizCompany").value.trim();
+            updatePayload.bio = document.getElementById("bizBio").value.trim();
+            updatePayload.services = document.getElementById("bizServices").value.trim();
+            updatePayload.phone = document.getElementById("bizPhone").value.trim();
+            updatePayload.email = document.getElementById("bizEmail").value.trim();
+            updatePayload.website = document.getElementById("bizWebsite").value.trim();
+            updatePayload.address = document.getElementById("bizAddress").value.trim();
+            updatePayload.instagram = document.getElementById("bizInstagram").value.trim();
+            updatePayload.facebook = document.getElementById("bizFacebook").value.trim();
+            updatePayload.linkedin = document.getElementById("bizLinkedin").value.trim();
+            updatePayload.title = updatePayload.name || updatePayload.company || "بطاقة عمل";
+
+            let logoUrl = bizCurrentLogo;
+            if (bizNewLogo) {
+                btnSave.innerHTML = "🖼️ جاري رفع الشعار...";
+                const compressed = await compressImage(bizNewLogo);
+                logoUrl = await uploadToCloudinary(compressed, "image", (p) => {
+                    btnSave.innerHTML = `🖼️ رفع الشعار — ${p}%`;
+                });
+            }
+            updatePayload.logoUrl = logoUrl;
+        }
+
+        btnSave.innerHTML = "💾 جاري الحفظ...";
+        await updateDoc(cardRef, updatePayload);
+
+        alert("✅ تم حفظ الكرت بنجاح!");
+        document.getElementById("editModal").classList.remove("active");
+        await loadUserCards(currentUser.uid);
+
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطأ: " + error.message);
+    } finally {
+        btnSave.innerHTML = originalText;
+        btnSave.disabled = false;
+    }
+});
+
+// ===== تشخيص نهائي =====
+console.log("✅ customer-dashboard.js جاهز");
+console.log("CARD_TYPES:", CARD_TYPES.length, "أنواع");
