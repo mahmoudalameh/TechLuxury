@@ -5,9 +5,9 @@ import {
     createUserWithEmailAndPassword,
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, serverTimestamp , getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ⚠️ استبدل هذه الإعدادات ببيانات مشروعك الخاصة من Firebase
+// ===== إعدادات Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyBZcGZQpBZi6RwMeBnL4UcdrBQyZHXsLWY",
   authDomain: "techluxury-4b854.firebaseapp.com",
@@ -16,7 +16,6 @@ const firebaseConfig = {
   messagingSenderId: "1043863547919",
   appId: "1:1043863547919:web:46bd7c74f0fbeb2702b37a",
   measurementId: "G-EZJWPY4Q2Z"
-
 };
 
 const app = initializeApp(firebaseConfig);
@@ -25,13 +24,14 @@ const db = getFirestore(app);
 
 let isSignUp = false;
 
-// التبديل بين وضع تسجيل الدخول وتوفير حساب جديد
+// ===== عناصر الصفحة =====
 const btnToggle = document.getElementById("btnToggle");
 const nameGroup = document.getElementById("nameGroup");
 const formTitle = document.getElementById("formTitle");
 const btnSubmit = document.getElementById("btnSubmit");
 const toggleText = document.getElementById("toggleText");
 
+// ===== التبديل بين تسجيل الدخول وإنشاء حساب =====
 btnToggle.addEventListener("click", () => {
     isSignUp = !isSignUp;
     if (isSignUp) {
@@ -49,21 +49,26 @@ btnToggle.addEventListener("click", () => {
     }
 });
 
-// معالجة نموذج التسجيل / الدخول
+// ===== معالجة نموذج التسجيل / الدخول =====
 document.getElementById("authForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    
-    const email = document.getElementById("email").value;
+
+    const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
-    const fullName = document.getElementById("fullName").value;
+    const fullName = document.getElementById("fullName").value.trim();
 
     try {
         if (isSignUp) {
-            // 1. إنشاء حساب جديد
+            // 🔹 إنشاء حساب جديد
+            if (!fullName) {
+                alert("الرجاء إدخال الاسم الكامل");
+                return;
+            }
+
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // حفظ بيانات المستخدم في Firestore
+            // 💾 حفظ بيانات المستخدم في Firestore
             await setDoc(doc(db, "users", user.uid), {
                 uid: user.uid,
                 name: fullName,
@@ -72,63 +77,34 @@ document.getElementById("authForm").addEventListener("submit", async (e) => {
                 createdAt: serverTimestamp()
             });
 
-            alert("تم إنشاء الحساب بنجاح!");
+            alert("✅ تم إنشاء الحساب بنجاح!");
             window.location.href = "customer-dashboard.html";
         } else {
-            // 2. تسجيل الدخول
+            // 🔹 تسجيل الدخول
             await signInWithEmailAndPassword(auth, email, password);
             window.location.href = "customer-dashboard.html";
         }
     } catch (error) {
         console.error("خطأ في المصادقة:", error);
-        alert("فشلت العملية: " + error.message);
+
+        // رسائل خطأ واضحة بالعربية
+        let message = error.message;
+        if (error.code === "auth/invalid-email") message = "البريد الإلكتروني غير صالح";
+        else if (error.code === "auth/user-not-found") message = "لا يوجد حساب بهذا البريد";
+        else if (error.code === "auth/wrong-password") message = "كلمة المرور غير صحيحة";
+        else if (error.code === "auth/email-already-in-use") message = "هذا البريد مستخدم بالفعل";
+        else if (error.code === "auth/weak-password") message = "كلمة المرور ضعيفة (6 أحرف على الأقل)";
+        else if (error.code === "auth/invalid-credential") message = "البريد أو كلمة المرور غير صحيحة";
+
+        alert("❌ " + message);
     }
 });
 
-// التحقق مما إذا كان المستخدم مسجلاً بالفعل
-// ===== التحقق من تسجيل الدخول وجلب اسم العميل =====
-onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        window.location.href = "login.html";
-        return;
-    }
-
-    currentUser = user;
-
-    try {
-        // جلب بيانات العميل من Firestore
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-
-        const userNameEl = document.getElementById("userName");
-
-        if (userSnap.exists()) {
-            const userData = userSnap.data();
-
-            // عرض اسم العميل
-            if (userNameEl) {
-                userNameEl.textContent = userData.name || "عميلنا";
-            }
-        } else {
-            // في حال لم توجد بيانات المستخدم
-            if (userNameEl) {
-                userNameEl.textContent = "عميلنا";
-            }
-        }
-
-        // تحميل منتجات العميل
-        await loadUserCards(user.uid);
-
-    } catch (error) {
-        console.error("خطأ في جلب بيانات العميل:", error);
-
-        const userNameEl = document.getElementById("userName");
-
-        if (userNameEl) {
-            userNameEl.textContent = "عميلنا";
-        }
-
-        await loadUserCards(user.uid);
+// ===== التحقق من تسجيل الدخول =====
+// إذا كان المستخدم مسجلاً → انتقل للوحة التحكم
+// إذا لم يكن مسجلاً → ابقَ في صفحة تسجيل الدخول
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        window.location.href = "customer-dashboard.html";
     }
 });
-
