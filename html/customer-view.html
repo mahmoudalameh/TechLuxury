@@ -17,14 +17,7 @@
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --border-color: #2e374a;
-            --accent-birthday: #ec4899;
-            --accent-anniversary: #e2b714;
-            --accent-graduation: #3b82f6;
-            --accent-mothers: #f43f5e;
-            --accent-ramadan: #a855f7;
-            --accent-album: #10b981;
-            --accent-video: #f97316;
-            --accent-free: #8b5cf6;
+            --accent: #e2b714;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
@@ -49,171 +42,105 @@
             z-index: 9999;
             transition: opacity 0.5s;
         }
-
         .loading-screen.hidden { opacity: 0; visibility: hidden; }
-
         .loading-spinner {
-            width: 50px;
-            height: 50px;
+            width: 50px; height: 50px;
             border: 4px solid rgba(226, 183, 20, 0.2);
             border-top-color: var(--accent-gold);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
         }
-
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ===== شاشة الخطأ ===== */
         .error-screen {
             min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            gap: 15px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; gap: 15px;
         }
-
-        .error-screen i {
-            font-size: 4rem;
-            color: #ef4444;
-        }
-
-        .error-screen h2 { color: var(--text-main); }
+        .error-screen i { font-size: 4rem; color: #ef4444; }
 
         /* ===== شاشة سؤال الأمان ===== */
         .security-screen {
             min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             padding: 20px;
         }
-
         .security-box {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 20px;
             padding: 40px 30px;
-            max-width: 450px;
-            width: 100%;
+            max-width: 450px; width: 100%;
             text-align: center;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
-
-        .security-box .lock-icon {
-            font-size: 3rem;
-            color: var(--accent-gold);
-            margin-bottom: 20px;
-        }
-
-        .security-box h3 {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-        }
-
+        .security-box .lock-icon { font-size: 3rem; color: var(--accent-gold); margin-bottom: 20px; }
+        .security-box h3 { font-size: 1.3rem; margin-bottom: 15px; }
         .security-box .question {
-            background: #0f172a;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            border: 1px solid var(--border-color);
+            background: #0f172a; padding: 15px; border-radius: 10px;
+            margin-bottom: 20px; color: var(--text-muted);
+            font-size: 0.95rem; border: 1px solid var(--border-color);
         }
-
         .security-box input {
-            width: 100%;
-            padding: 14px;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 1rem;
-            text-align: center;
-            outline: none;
+            width: 100%; padding: 14px;
+            background: #0f172a; border: 1px solid var(--border-color);
+            border-radius: 10px; color: #fff;
+            font-size: 1rem; text-align: center; outline: none;
             margin-bottom: 15px;
         }
-
         .security-box input:focus { border-color: var(--accent-gold); }
-
         .btn-unlock {
             width: 100%;
             background: linear-gradient(135deg, var(--accent-gold), #d97706);
-            color: #000;
-            font-weight: 700;
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 1rem;
+            color: #000; font-weight: 700;
+            border: none; padding: 14px;
+            border-radius: 10px; cursor: pointer; font-size: 1rem;
         }
-
-        .btn-unlock:hover { opacity: 0.9; }
-
-        .error-msg {
-            color: #f87171;
-            font-size: 0.85rem;
-            margin-top: 10px;
-            display: none;
-        }
+        .error-msg { color: #f87171; font-size: 0.85rem; margin-top: 10px; display: none; }
 
         /* ===== الحاوية الرئيسية ===== */
-        .view-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding-bottom: 100px;
-        }
+        .view-container { max-width: 800px; margin: 0 auto; padding-bottom: 100px; }
 
-        /* ===== الهيدر ===== */
-        .card-header {
+        /* ============================================================
+           نوع 1: 🎁 كرت الهدية
+           ============================================================ */
+        .gift-header {
             text-align: center;
             padding: 40px 20px 30px;
-            position: relative;
         }
-
-        .card-icon-main {
+        .gift-icon {
             font-size: 4rem;
+            color: var(--accent);
             margin-bottom: 20px;
             display: inline-block;
             animation: float 3s ease-in-out infinite;
         }
-
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
-
-        .card-header h1 {
+        .gift-header h1 {
             font-family: 'Amiri', serif;
             font-size: 2.2rem;
             margin-bottom: 10px;
-            background: linear-gradient(135deg, var(--accent-gold), #fff);
+            background: linear-gradient(135deg, var(--accent), #fff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-
-        .card-header .occasion-label {
+        .gift-label {
             display: inline-block;
             padding: 6px 18px;
             border-radius: 30px;
             background: rgba(226, 183, 20, 0.15);
-            color: var(--accent-gold);
+            color: var(--accent);
             font-size: 0.9rem;
             border: 1px solid rgba(226, 183, 20, 0.3);
             margin-top: 10px;
         }
-
-        .card-header .card-date {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-top: 12px;
-        }
-
-        /* ===== الرسالة ===== */
         .message-box {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -223,41 +150,32 @@
             position: relative;
             overflow: hidden;
         }
-
         .message-box::before {
             content: '"';
             position: absolute;
-            top: -20px;
-            right: 20px;
+            top: -20px; right: 20px;
             font-size: 6rem;
             color: rgba(226, 183, 20, 0.1);
             font-family: 'Amiri', serif;
         }
-
         .message-box p {
             font-family: 'Amiri', serif;
             font-size: 1.3rem;
             line-height: 2;
-            color: var(--text-main);
             position: relative;
             z-index: 1;
             white-space: pre-wrap;
         }
 
-        /* ===== معرض الصور ===== */
+        /* ===== معرض الصور (Swiper-like) ===== */
         .section-title {
             font-size: 1.1rem;
-            color: var(--accent-gold);
+            color: var(--accent);
             margin: 30px 0 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: flex; align-items: center; gap: 10px;
         }
-
         .section-title::after {
-            content: '';
-            flex: 1;
-            height: 1px;
+            content: ''; flex: 1; height: 1px;
             background: linear-gradient(to left, transparent, var(--border-color));
         }
 
@@ -266,31 +184,18 @@
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 12px;
         }
-
         .gallery img {
-            width: 100%;
-            aspect-ratio: 1;
+            width: 100%; aspect-ratio: 1;
             object-fit: cover;
             border-radius: 12px;
             cursor: pointer;
             transition: transform 0.3s, box-shadow 0.3s;
             border: 1px solid var(--border-color);
         }
-
         .gallery img:hover {
             transform: scale(1.03);
             box-shadow: 0 10px 25px rgba(226, 183, 20, 0.2);
-            border-color: var(--accent-gold);
-        }
-
-        /* للصور الفردية (ألبوم صور) */
-        .gallery.single-column {
-            grid-template-columns: 1fr;
-        }
-
-        .gallery.single-column img {
-            aspect-ratio: auto;
-            max-height: 500px;
+            border-color: var(--accent);
         }
 
         /* ===== الفيديو ===== */
@@ -301,14 +206,330 @@
             border: 1px solid var(--border-color);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
+        .video-wrapper video { width: 100%; display: block; background: #000; }
 
-        .video-wrapper video {
-            width: 100%;
-            display: block;
-            background: #000;
+        /* ============================================================
+           نوع 2: 📖 كتاب الذكريات (قلب صفحات)
+           ============================================================ */
+        .book-container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+        .book-cover {
+            text-align: center;
+            padding: 30px 20px;
+            margin-bottom: 20px;
+        }
+        .book-cover h1 {
+            font-family: 'Amiri', serif;
+            font-size: 2rem;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        .book-cover .book-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
         }
 
-        /* ===== Lightbox لعرض الصور ===== */
+        .book-pages {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px 25px;
+            min-height: 400px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .book-page {
+            display: none;
+            animation: pageIn 0.5s ease;
+        }
+        .book-page.active { display: block; }
+
+        @keyframes pageIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .page-header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 25px;
+        }
+        .page-emoji {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        .page-title {
+            font-family: 'Amiri', serif;
+            font-size: 1.8rem;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        .page-date {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .page-message {
+            font-family: 'Amiri', serif;
+            font-size: 1.15rem;
+            line-height: 1.9;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+        }
+        .page-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .page-gallery img {
+            width: 100%; aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s;
+        }
+        .page-gallery img:hover { transform: scale(1.05); border-color: var(--accent); }
+
+        .page-video {
+            margin-top: 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .page-video video { width: 100%; display: block; background: #000; }
+
+        /* ===== أزرار التنقل بين الصفحات ===== */
+        .book-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            gap: 15px;
+        }
+        .book-nav-btn {
+            background: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .book-nav-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .book-nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .book-page-indicator {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-align: center;
+            flex: 1;
+        }
+        .book-page-indicator strong { color: var(--accent); font-size: 1.1rem; }
+
+        /* ===== نقاط التنقل ===== */
+        .book-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .book-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--border-color);
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+        }
+        .book-dot.active {
+            background: var(--accent);
+            width: 30px;
+            border-radius: 5px;
+        }
+
+        /* ============================================================
+           نوع 3: 💼 بطاقة العمل
+           ============================================================ */
+        .biz-card {
+            max-width: 500px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px 30px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        .biz-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 120px;
+            background: linear-gradient(135deg, var(--accent), transparent);
+            opacity: 0.15;
+        }
+
+        .biz-logo {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--accent);
+            margin: 0 auto 20px;
+            display: block;
+            background: #0f172a;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 10px 30px rgba(226, 183, 20, 0.3);
+        }
+        .biz-logo-placeholder {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            border: 4px solid var(--accent);
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f172a;
+            font-size: 3rem;
+            color: var(--accent);
+            position: relative;
+            z-index: 1;
+        }
+
+        .biz-name {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        .biz-job {
+            color: var(--accent);
+            font-size: 1rem;
+            margin-bottom: 5px;
+            position: relative;
+            z-index: 1;
+        }
+        .biz-company {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .biz-section {
+            text-align: right;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px 18px;
+            margin-bottom: 15px;
+        }
+        .biz-section-title {
+            color: var(--accent);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .biz-section-content {
+            color: var(--text-main);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        .biz-contacts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .biz-contact-btn {
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 12px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .biz-contact-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .biz-contact-btn i { font-size: 1.1rem; }
+
+        .biz-contact-btn.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .biz-socials {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+        .biz-social-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+        .biz-social-btn:hover {
+            transform: translateY(-5px) scale(1.1);
+            color: #fff;
+        }
+        .biz-social-btn.instagram:hover { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); border-color: transparent; }
+        .biz-social-btn.facebook:hover { background: #1877f2; border-color: transparent; }
+        .biz-social-btn.linkedin:hover { background: #0a66c2; border-color: transparent; }
+        .biz-social-btn.website:hover { background: var(--accent); border-color: transparent; color: #000; }
+
+        /* ===== Lightbox ===== */
         .lightbox {
             position: fixed;
             inset: 0;
@@ -319,54 +540,38 @@
             z-index: 10000;
             padding: 20px;
         }
-
         .lightbox.active { display: flex; }
-
         .lightbox img {
-            max-width: 95%;
-            max-height: 90vh;
+            max-width: 95%; max-height: 90vh;
             border-radius: 12px;
             object-fit: contain;
         }
-
         .lightbox-close {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 20px; right: 20px;
             background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            border: none;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            font-size: 1.5rem;
+            color: #fff; border: none;
+            width: 45px; height: 45px;
+            border-radius: 50%; font-size: 1.5rem;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
         }
-
         .lightbox-nav {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
             background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            border: none;
-            width: 50px;
-            height: 50px;
+            color: #fff; border: none;
+            width: 50px; height: 50px;
             border-radius: 50%;
             font-size: 1.5rem;
             cursor: pointer;
         }
-
         .lightbox-nav.prev { right: 20px; }
         .lightbox-nav.next { left: 20px; }
-
         .lightbox-counter {
             position: absolute;
-            bottom: 20px;
-            left: 50%;
+            bottom: 20px; left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.6);
             padding: 8px 16px;
@@ -375,56 +580,43 @@
             font-size: 0.9rem;
         }
 
-        /* ===== زر تشغيل الموسيقى (في حال منع المتصفح) ===== */
+        /* ===== زر الموسيقى ===== */
         .music-toggle {
             position: fixed;
-            bottom: 25px;
-            left: 25px;
-            width: 55px;
-            height: 55px;
+            bottom: 25px; left: 25px;
+            width: 55px; height: 55px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent-gold), #d97706);
-            color: #000;
-            border: none;
+            background: linear-gradient(135deg, var(--accent), #d97706);
+            color: #000; border: none;
             font-size: 1.4rem;
             cursor: pointer;
             box-shadow: 0 8px 20px rgba(226, 183, 20, 0.4);
             display: none;
-            align-items: center;
-            justify-content: center;
+            align-items: center; justify-content: center;
             z-index: 100;
             animation: pulse 2s infinite;
         }
-
         .music-toggle.visible { display: flex; }
-
         .music-toggle.playing i { animation: spin 3s linear infinite; }
-
         @keyframes pulse {
             0%, 100% { transform: scale(1); box-shadow: 0 8px 20px rgba(226, 183, 20, 0.4); }
             50% { transform: scale(1.08); box-shadow: 0 8px 30px rgba(226, 183, 20, 0.7); }
         }
 
-        /* ===== تأثيرات حسب النوع ===== */
+        /* ===== تأثيرات ===== */
         .confetti {
             position: fixed;
             top: -10px;
-            width: 10px;
-            height: 10px;
-            background: var(--accent-gold);
+            width: 10px; height: 10px;
+            background: var(--accent);
             animation: fall linear infinite;
             pointer-events: none;
             z-index: 5;
             opacity: 0.7;
         }
-
         @keyframes fall {
-            to {
-                transform: translateY(100vh) rotate(720deg);
-                opacity: 0;
-            }
+            to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
-
         .heart {
             position: fixed;
             bottom: -20px;
@@ -435,30 +627,20 @@
             z-index: 5;
             opacity: 0.6;
         }
-
         @keyframes rise {
-            to {
-                transform: translateY(-110vh) rotate(360deg);
-                opacity: 0;
-            }
-        }
-
-        .star {
-            position: fixed;
-            top: -10px;
-            color: #a855f7;
-            font-size: 1.2rem;
-            animation: fall linear infinite;
-            pointer-events: none;
-            z-index: 5;
-            opacity: 0.7;
+            to { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
         }
 
         /* ===== Responsive ===== */
         @media (max-width: 500px) {
-            .card-header h1 { font-size: 1.7rem; }
+            .gift-header h1 { font-size: 1.7rem; }
             .message-box p { font-size: 1.1rem; }
-            .card-icon-main { font-size: 3rem; }
+            .gift-icon { font-size: 3rem; }
+            .page-title { font-size: 1.5rem; }
+            .biz-name { font-size: 1.5rem; }
+            .biz-contacts { grid-template-columns: 1fr; }
+            .book-pages { padding: 20px 15px; }
+            .book-nav-btn { padding: 10px 14px; font-size: 0.85rem; }
         }
     </style>
 </head>
@@ -473,7 +655,7 @@
     <!-- الحاوية الرئيسية -->
     <div class="view-container" id="viewContainer" style="display:none;"></div>
 
-    <!-- Lightbox لعرض الصور -->
+    <!-- Lightbox -->
     <div class="lightbox" id="lightbox">
         <button class="lightbox-close" id="lightboxClose"><i class="fa-solid fa-xmark"></i></button>
         <button class="lightbox-nav prev" id="lightboxPrev"><i class="fa-solid fa-chevron-right"></i></button>
@@ -482,12 +664,11 @@
         <div class="lightbox-counter" id="lightboxCounter"></div>
     </div>
 
-    <!-- زر تشغيل الموسيقى -->
+    <!-- زر الموسيقى -->
     <button class="music-toggle" id="musicToggle" title="تشغيل الموسيقى">
         <i class="fa-solid fa-music"></i>
     </button>
 
-    <!-- الموسيقى -->
     <audio id="bgMusic" loop></audio>
 
     <script type="module" src="../js/customer-view.js"></script>
