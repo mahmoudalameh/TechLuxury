@@ -423,6 +423,73 @@
             border-color: var(--accent-gold);
             background: rgba(226, 183, 20, 0.15);
         }
+
+        /* ✅ قائمة السوشيال ميديا المتعددة */
+        .social-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .social-item {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        .social-item input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 6px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .social-item input::placeholder {
+            color: #64748b;
+        }
+
+        .btn-remove-social {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .btn-remove-social:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-add-social {
+            width: 100%;
+            background: rgba(226, 183, 20, 0.1);
+            color: var(--accent-gold);
+            border: 2px dashed var(--accent-gold);
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-add-social:hover {
+            background: rgba(226, 183, 20, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -583,10 +650,15 @@
 
                         <h3 class="section-title"><i class="fa-solid fa-share-nodes"></i> السوشيال ميديا (اختياري)</h3>
 
+                        <!-- ✅ إنستغرام متعدد -->
                         <div class="form-group">
-                            <label>📸 إنستغرام</label>
-                            <input type="text" id="bizInstagram" placeholder="@username">
+                            <label>📸 حسابات إنستغرام</label>
+                            <div id="instagramList" class="social-list"></div>
+                            <button type="button" id="btnAddInstagram" class="btn-add-social">
+                                <i class="fa-solid fa-plus"></i> إضافة حساب إنستغرام
+                            </button>
                         </div>
+
                         <div class="form-group">
                             <label>👍 فيسبوك</label>
                             <input type="text" id="bizFacebook" placeholder="facebook.com/page">
