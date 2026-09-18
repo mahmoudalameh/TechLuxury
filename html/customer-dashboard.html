@@ -424,7 +424,7 @@
             background: rgba(226, 183, 20, 0.15);
         }
 
-        /* ✅ قائمة السوشيال ميديا المتعددة */
+        /* ✅ قائمة السوشيال ميديا / الهواتف / المواقع المتعددة */
         .social-list {
             display: flex;
             flex-direction: column;
@@ -628,19 +628,27 @@
 
                         <h3 class="section-title"><i class="fa-solid fa-address-book"></i> معلومات التواصل</h3>
 
+                        <!-- ✅ أرقام الهاتف المتعددة -->
                         <div class="form-group">
-                            <label>📱 رقم الهاتف</label>
-                            <input type="text" id="bizPhone" placeholder="+962 7XXXXXXXX">
+                            <label>📱 أرقام الهاتف</label>
+                            <div id="phoneList" class="social-list"></div>
+                            <button type="button" id="btnAddPhone" class="btn-add-social">
+                                <i class="fa-solid fa-plus"></i> إضافة رقم هاتف
+                            </button>
+                        </div>
+
+                        <!-- ✅ المواقع الإلكترونية المتعددة -->
+                        <div class="form-group">
+                            <label>🌐 المواقع الإلكترونية</label>
+                            <div id="websiteList" class="social-list"></div>
+                            <button type="button" id="btnAddWebsite" class="btn-add-social">
+                                <i class="fa-solid fa-plus"></i> إضافة موقع إلكتروني
+                            </button>
                         </div>
 
                         <div class="form-group">
                             <label>📧 البريد الإلكتروني</label>
                             <input type="email" id="bizEmail" placeholder="email@example.com">
-                        </div>
-
-                        <div class="form-group">
-                            <label>🌐 الموقع الإلكتروني</label>
-                            <input type="url" id="bizWebsite" placeholder="https://example.com">
                         </div>
 
                         <div class="form-group">
@@ -650,7 +658,7 @@
 
                         <h3 class="section-title"><i class="fa-solid fa-share-nodes"></i> السوشيال ميديا (اختياري)</h3>
 
-                        <!-- ✅ إنستغرام متعدد -->
+                        <!-- ✅ حسابات إنستغرام المتعددة -->
                         <div class="form-group">
                             <label>📸 حسابات إنستغرام</label>
                             <div id="instagramList" class="social-list"></div>
