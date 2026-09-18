@@ -125,7 +125,6 @@ function generateId() {
     return "evt_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
 }
 
-// ✅ تحويل أي قيمة إلى مصفوفة (لتوافق البيانات القديمة)
 function toArray(value) {
     if (Array.isArray(value)) return value.filter(v => v && String(v).trim() !== "");
     if (value && typeof value === "string" && value.trim() !== "") return [value];
@@ -283,7 +282,6 @@ function renderTypeSelector() {
             selectedType = t;
             const btnConfirmType = document.getElementById("btnConfirmType");
             if (btnConfirmType) btnConfirmType.disabled = false;
-            console.log("✅ تم اختيار النوع:", t.label);
         });
 
         typeSelector.appendChild(option);
@@ -292,8 +290,6 @@ function renderTypeSelector() {
 
 // ===== فتح نافذة التعديل =====
 function openEditModal(cardId, card) {
-    console.log("🔵 فتح نافذة التعديل للكرت:", cardId, "النوع:", card.type);
-
     currentCard = { ...card, id: cardId };
 
     const editCardIdEl = document.getElementById("editCardId");
@@ -476,7 +472,7 @@ function showCardFields(card) {
     }
 }
 
-// ===== ✅ قوائم ديناميكية عامة =====
+// ===== قوائم ديناميكية =====
 function renderInstagramList() {
     renderSocialList("instagramList", bizInstagramList, "@username", "fa-brands fa-instagram", "#e1306c");
 }
@@ -525,7 +521,7 @@ function renderSocialList(containerId, list, placeholder, iconClass, iconColor) 
     });
 }
 
-// ===== ✅ أحداث الإضافة =====
+// ===== أحداث الإضافة =====
 document.getElementById("btnAddInstagram")?.addEventListener("click", () => {
     bizInstagramList.push("");
     renderInstagramList();
@@ -919,7 +915,6 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             updatePayload.facebook = document.getElementById("bizFacebook").value.trim();
             updatePayload.linkedin = document.getElementById("bizLinkedin").value.trim();
 
-            // ✅ حفظ القوائم كمصفوفات نظيفة
             updatePayload.instagram = bizInstagramList
                 .map(v => v.trim())
                 .filter(v => v !== "");
