@@ -23,7 +23,7 @@ const db = getFirestore(app);
 
 // ===== Cloudinary =====
 const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
-const CLOUDINARY_UPLOAD_PRESET = "ml_default"; // ← الـ preset الجديد الآمن (أو "ml_default" إن لم تنشئ واحداً بعد)
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
 function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
     return new Promise((resolve, reject) => {
@@ -103,6 +103,7 @@ let giftImagesToDelete = [];
 let giftNewVideo = null;
 let bizNewLogo = null;
 let bizCurrentLogo = "";
+let bizInstagramList = []; // ✅ قائمة حسابات إنستغرام
 let newBgMusicFile = null;
 
 // ===== دوال الإظهار والإخفاء =====
@@ -128,7 +129,6 @@ onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "login.html"; return; }
     currentUser = user;
 
-    // 📥 جلب اسم المستخدم من Firestore
     try {
         const userSnap = await getDoc(doc(db, "users", user.uid));
         const userNameEl = document.getElementById("userName");
@@ -335,13 +335,15 @@ function resetFormState() {
     giftNewVideo = null;
     bizNewLogo = null;
     bizCurrentLogo = "";
+    bizInstagramList = []; // ✅
     newBgMusicFile = null;
     eventsState = [];
 
     const ids = [
         "giftTitle", "giftMessage", "bookTitle", "bizName", "bizJobTitle",
         "bizCompany", "bizBio", "bizServices", "bizPhone", "bizEmail",
-        "bizWebsite", "bizAddress", "bizInstagram", "bizFacebook", "bizLinkedin"
+        "bizWebsite", "bizAddress", "bizFacebook", "bizLinkedin"
+        // ← تم حذف "bizInstagram" لأنه أصبح قائمة ديناميكية
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -371,6 +373,9 @@ function resetFormState() {
 
     const eventsListEl = document.getElementById("eventsList");
     if (eventsListEl) eventsListEl.innerHTML = "";
+
+    const instagramListEl = document.getElementById("instagramList");
+    if (instagramListEl) instagramListEl.innerHTML = ""; // ✅
 }
 
 // ===== تأكيد النوع =====
@@ -445,9 +450,18 @@ function showCardFields(card) {
         document.getElementById("bizEmail").value = card.email || "";
         document.getElementById("bizWebsite").value = card.website || "";
         document.getElementById("bizAddress").value = card.address || "";
-        document.getElementById("bizInstagram").value = card.instagram || "";
         document.getElementById("bizFacebook").value = card.facebook || "";
         document.getElementById("bizLinkedin").value = card.linkedin || "";
+
+        // ✅ دعم الشكل القديم (نص واحد) والشكل الجديد (مصفوفة)
+        if (Array.isArray(card.instagram)) {
+            bizInstagramList = [...card.instagram];
+        } else if (card.instagram && typeof card.instagram === "string") {
+            bizInstagramList = [card.instagram];
+        } else {
+            bizInstagramList = [];
+        }
+        renderInstagramList();
 
         bizCurrentLogo = card.logoUrl || "";
         renderBizLogo();
@@ -457,6 +471,53 @@ function showCardFields(card) {
         document.getElementById("bgMusicStatus").textContent = "✅ توجد موسيقى محفوظة";
     }
 }
+
+// ===== ✅ عرض قائمة حسابات إنستغرام =====
+function renderInstagramList() {
+    const container = document.getElementById("instagramList");
+    if (!container) return;
+
+    if (bizInstagramList.length === 0) {
+        bizInstagramList.push(""); // حقل فارغ افتراضي
+    }
+
+    container.innerHTML = "";
+    bizInstagramList.forEach((value, index) => {
+        const item = document.createElement("div");
+        item.className = "social-item";
+        item.innerHTML = `
+            <i class="fa-brands fa-instagram" style="color:#e1306c;font-size:1.2rem;"></i>
+            <input type="text" placeholder="@username" value="${value || ""}" data-index="${index}">
+            <button type="button" class="btn-remove-social" data-index="${index}">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        `;
+
+        item.querySelector("input").addEventListener("input", (e) => {
+            bizInstagramList[index] = e.target.value;
+        });
+
+        item.querySelector(".btn-remove-social").addEventListener("click", () => {
+            if (bizInstagramList.length === 1) {
+                bizInstagramList[0] = "";
+                renderInstagramList();
+                return;
+            }
+            bizInstagramList.splice(index, 1);
+            renderInstagramList();
+        });
+
+        container.appendChild(item);
+    });
+}
+
+// ===== ✅ إضافة حساب إنستغرام جديد =====
+document.getElementById("btnAddInstagram")?.addEventListener("click", () => {
+    bizInstagramList.push("");
+    renderInstagramList();
+    const inputs = document.querySelectorAll("#instagramList input");
+    if (inputs.length) inputs[inputs.length - 1].focus();
+});
 
 // ===== عرض صور كرت الهدية =====
 function renderGiftImages() {
@@ -827,9 +888,14 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             updatePayload.email = document.getElementById("bizEmail").value.trim();
             updatePayload.website = document.getElementById("bizWebsite").value.trim();
             updatePayload.address = document.getElementById("bizAddress").value.trim();
-            updatePayload.instagram = document.getElementById("bizInstagram").value.trim();
             updatePayload.facebook = document.getElementById("bizFacebook").value.trim();
             updatePayload.linkedin = document.getElementById("bizLinkedin").value.trim();
+
+            // ✅ حفظ قائمة إنستغرام (مصفوفة نظيفة)
+            updatePayload.instagram = bizInstagramList
+                .map(v => v.trim())
+                .filter(v => v !== "");
+
             updatePayload.title = updatePayload.name || updatePayload.company || "بطاقة عمل";
 
             let logoUrl = bizCurrentLogo;
