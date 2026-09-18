@@ -475,42 +475,147 @@ function showBookPage(pageNum) {
 // ============================================================
 // 💼 نوع 3: بطاقة العمل
 // ============================================================
+// ===== دوال مساعدة (أضفها فوق renderBusinessCard) =====
+function toArray(value) {
+    if (Array.isArray(value)) return value.filter(v => v && String(v).trim() !== "");
+    if (value && typeof value === "string" && value.trim() !== "") return [value];
+    return [];
+}
+
+function cleanInstagram(username) {
+    return String(username)
+        .replace(/^@/, "")
+        .replace(/^.*instagram\.com\//, "")
+        .replace(/\/$/, "")
+        .trim();
+}
+
+function cleanPhone(phone) {
+    return String(phone).replace(/[^\d+]/g, "");
+}
+
+function cleanWebsite(url) {
+    let u = String(url).trim();
+    if (!u) return "";
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    return u;
+}
+
+function displayWebsite(url) {
+    return String(url).replace(/^https?:\/\//i, "").replace(/\/$/, "");
+}
+
+function displayPhone(phone) {
+    return String(phone).trim();
+}
+
+// ============================================================
+// 💼 نوع 3: بطاقة العمل
+// ============================================================
 function renderBusinessCard(card, typeInfo) {
+    // ✅ تحويل الحقول القديمة (نص) والجديدة (مصفوفة) إلى مصفوفات موحدة
+    const phones = toArray(card.phone);
+    const websites = toArray(card.website);
+    const instagrams = toArray(card.instagram);
+    const facebook = toArray(card.facebook);
+    const linkedin = toArray(card.linkedin);
+    const emails = toArray(card.email);
+
+    // ===== بناء أزرار التواصل =====
     const contacts = [];
 
-    if (card.phone) {
-        contacts.push(`<a href="tel:${card.phone}" class="biz-contact-btn">
-            <i class="fa-solid fa-phone"></i> اتصل
-        </a>`);
-    }
-    if (card.email) {
-        contacts.push(`<a href="mailto:${card.email}" class="biz-contact-btn">
-            <i class="fa-solid fa-envelope"></i> راسلني
-        </a>`);
-    }
-    if (card.phone) {
-        const whatsappNum = card.phone.replace(/[^0-9]/g, "");
-        contacts.push(`<a href="https://wa.me/${whatsappNum}" target="_blank" class="biz-contact-btn full-width">
-            <i class="fa-brands fa-whatsapp"></i> واتساب
-        </a>`);
-    }
-    if (card.website) {
-        contacts.push(`<a href="${card.website}" target="_blank" class="biz-contact-btn full-width">
-            <i class="fa-solid fa-globe"></i> زيارة الموقع
-        </a>`);
-    }
+    // الهواتف (زر اتصال لكل رقم)
+    phones.forEach(num => {
+        const clean = cleanPhone(num);
+        contacts.push(`
+            <a href="tel:${clean}" class="biz-contact-btn">
+                <i class="fa-solid fa-phone"></i> ${escapeHtml(displayPhone(num))}
+            </a>
+        `);
+    });
+
+    // البريد
+    emails.forEach(mail => {
+        contacts.push(`
+            <a href="mailto:${mail}" class="biz-contact-btn">
+                <i class="fa-solid fa-envelope"></i> راسلني
+            </a>
+        `);
+    });
+
+    // واتساب (لكل رقم)
+    phones.forEach(num => {
+        const waNum = cleanPhone(num).replace(/^\+/, "");
+        contacts.push(`
+            <a href="https://wa.me/${waNum}" target="_blank" class="biz-contact-btn full-width">
+                <i class="fa-brands fa-whatsapp"></i> واتساب: ${escapeHtml(displayPhone(num))}
+            </a>
+        `);
+    });
+
+    // المواقع (زر لكل موقع)
+    websites.forEach(site => {
+        const url = cleanWebsite(site);
+        contacts.push(`
+            <a href="${url}" target="_blank" class="biz-contact-btn full-width">
+                <i class="fa-solid fa-globe"></i> ${escapeHtml(displayWebsite(site))}
+            </a>
+        `);
+    });
+
+    // العنوان
     if (card.address) {
-        contacts.push(`<a href="https://maps.google.com/?q=${encodeURIComponent(card.address)}" target="_blank" class="biz-contact-btn full-width">
-            <i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.address)}
-        </a>`);
+        contacts.push(`
+            <a href="https://maps.google.com/?q=${encodeURIComponent(card.address)}" target="_blank" class="biz-contact-btn full-width">
+                <i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.address)}
+            </a>
+        `);
     }
 
+    // ===== بناء أزرار السوشيال =====
     const socials = [];
-    if (card.instagram) socials.push(`<a href="https://instagram.com/${card.instagram.replace("@", "")}" target="_blank" class="biz-social-btn instagram"><i class="fa-brands fa-instagram"></i></a>`);
-    if (card.facebook) socials.push(`<a href="https://${card.facebook.replace(/^https?:\/\//, "")}" target="_blank" class="biz-social-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`);
-    if (card.linkedin) socials.push(`<a href="https://${card.linkedin.replace(/^https?:\/\//, "")}" target="_blank" class="biz-social-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`);
-    if (card.website) socials.push(`<a href="${card.website}" target="_blank" class="biz-social-btn website"><i class="fa-solid fa-globe"></i></a>`);
 
+    // إنستغرام (أيقونة لكل حساب)
+    instagrams.forEach(acc => {
+        const clean = cleanInstagram(acc);
+        socials.push(`
+            <a href="https://instagram.com/${clean}" target="_blank" class="biz-social-btn instagram" title="@${clean}">
+                <i class="fa-brands fa-instagram"></i>
+            </a>
+        `);
+    });
+
+    // فيسبوك
+    facebook.forEach(fb => {
+        const clean = String(fb).replace(/^https?:\/\//i, "");
+        socials.push(`
+            <a href="https://${clean}" target="_blank" class="biz-social-btn facebook" title="${escapeHtml(fb)}">
+                <i class="fa-brands fa-facebook-f"></i>
+            </a>
+        `);
+    });
+
+    // لينكد إن
+    linkedin.forEach(li => {
+        const clean = String(li).replace(/^https?:\/\//i, "");
+        socials.push(`
+            <a href="https://${clean}" target="_blank" class="biz-social-btn linkedin" title="${escapeHtml(li)}">
+                <i class="fa-brands fa-linkedin-in"></i>
+            </a>
+        `);
+    });
+
+    // مواقع إضافية كأزرار دائرية
+    websites.forEach(site => {
+        const url = cleanWebsite(site);
+        socials.push(`
+            <a href="${url}" target="_blank" class="biz-social-btn website" title="${escapeHtml(site)}">
+                <i class="fa-solid fa-globe"></i>
+            </a>
+        `);
+    });
+
+    // ===== بناء HTML البطاقة =====
     viewContainer.innerHTML = `
         <div class="biz-card">
             ${card.logoUrl
