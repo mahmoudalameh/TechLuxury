@@ -582,12 +582,12 @@ async function renderBusinessCard(card, typeInfo) {
     const linkedin = toArray(card.linkedin);
     const emails = toArray(card.email);
 
-    // 🔐 فك تشفير الشعار
+    // 🔐 فك تشفير الشعار (يدعم logo و logoUrl)
     let logoUrl = null;
-    if (card.logo) {
-        if (typeof card.logo === "string") {
-            logoUrl = card.logo;
-        } else if (card.logo.encrypted && currentEncryptionKey) {
+    
+    // الحالة 1: logo كائن مشفر (جديد)
+    if (card.logo && typeof card.logo === "object" && card.logo.encrypted && card.logo.url) {
+        if (currentEncryptionKey) {
             try {
                 const res = await fetch(card.logo.url);
                 const encryptedBlob = await res.blob();
@@ -598,8 +598,14 @@ async function renderBusinessCard(card, typeInfo) {
                 console.error("فشل فك تشفير الشعار:", e);
             }
         }
-    } else if (card.logoUrl) {
+    }
+    // الحالة 2: logoUrl نص قديم (غير مشفر)
+    else if (card.logoUrl && typeof card.logoUrl === "string") {
         logoUrl = card.logoUrl;
+    }
+    // الحالة 3: logo نص (احتياطي)
+    else if (card.logo && typeof card.logo === "string") {
+        logoUrl = card.logo;
     }
 
     const contacts = [];
