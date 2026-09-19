@@ -278,21 +278,39 @@ async function renderGiftCard(card, typeInfo) {
         }
     }
 
+        // 🎬 فك تشفير الفيديو (يدعم عدة صيغ)
     let videoUrl = null;
-    if (card.video) {
-        if (typeof card.video === "string") {
-            videoUrl = card.video;
-        } else if (card.video.encrypted && currentEncryptionKey) {
+    
+    // الحالة 1: videoUrl نص عادي (قديم - غير مشفر)
+    if (card.videoUrl && typeof card.videoUrl === "string") {
+        videoUrl = card.videoUrl;
+    }
+    // الحالة 2: video كائن مشفر (جديد)
+    else if (card.video && typeof card.video === "object" && card.video.encrypted && card.video.url) {
+        if (currentEncryptionKey) {
             try {
+                console.log("🎬 تحميل فيديو مشفر...");
                 const res = await fetch(card.video.url);
+                if (!res.ok) throw new Error("فشل تحميل الفيديو: " + res.status);
+                
                 const encryptedBlob = await res.blob();
+                console.log("📦 حجم الملف المشفر:", encryptedBlob.size, "بايت");
+                
                 const iv = base64UrlToBytes(card.video.iv);
                 const decryptedBlob = await decryptFile(encryptedBlob, iv, currentEncryptionKey);
                 videoUrl = URL.createObjectURL(decryptedBlob);
+                console.log("✅ تم فك تشفير الفيديو:", decryptedBlob.size, "بايت");
             } catch (e) {
-                console.error("فشل فك تشفير الفيديو:", e);
+                console.error("❌ فشل فك تشفير الفيديو:", e);
+                // لا نوقف العرض — نستمر بدون فيديو
             }
+        } else {
+            console.warn("⚠️ لا يوجد مفتاح لفك تشفير الفيديو");
         }
+    }
+    // الحالة 3: video نص عادي (احتياطي)
+    else if (card.video && typeof card.video === "string") {
+        videoUrl = card.video;
     }
 
     viewContainer.innerHTML = `
