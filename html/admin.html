@@ -24,6 +24,8 @@
             --success: #10b981;
         }
 
+           .btn-reset-type { background: #dc2626; color: #fff; }
+        .btn-reset-type:hover { background: #b91c1c; }
         * {
             box-sizing: border-box;
             margin: 0;
@@ -56,6 +58,29 @@
             color: var(--accent-gold);
         }
 
+                /* تحسين عرض العمود الأخير */
+        .action-btns {
+            display: flex;
+            gap: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: right;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        td select.status-select {
+            font-size: 0.8rem;
+            padding: 4px 6px;
+        }
         .btn-create {
             background: linear-gradient(135deg, #e2b714, #d97706);
             color: #000;
