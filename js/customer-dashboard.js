@@ -3,7 +3,7 @@ import {
     getAuth, onAuthStateChanged, signOut 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
-    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp 
+    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, limit 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // ===== Firebase =====
@@ -215,7 +215,12 @@ async function loadUserCards(uid) {
     myCardsList.innerHTML = "<p style='color:#94a3b8;'>جاري التحميل...</p>";
 
     try {
-        const q = query(collection(db, "cards"), where("ownerId", "==", uid));
+        // ✅ إضافة limit(50) لحل مشكلة الصلاحيات
+        const q = query(
+            collection(db, "cards"), 
+            where("ownerId", "==", uid),
+            limit(50)
+        );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
