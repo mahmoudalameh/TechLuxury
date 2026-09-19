@@ -31,7 +31,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ===== Cloudinary =====
-const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
+const CLOUDINARY_CLOUD_NAME = "c1j4mv6v";
 const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
 /**
