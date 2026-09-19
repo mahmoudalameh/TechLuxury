@@ -1,10 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
+    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, limit, deleteField 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
     getAuth, onAuthStateChanged, signOut 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { 
-    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, limit 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
 import {
     generateSalt,
     bytesToBase64Url,
@@ -1206,6 +1207,9 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             }
             updatePayload.images = finalImages;
 
+                    // 🔐 تشفير الفيديو
+            // ملاحظة: نُخزّن دائماً في حقل "video" (وليس videoUrl)
+            // ونحذف videoUrl القديم لتفادي الالتباس
             let videoData = oldData.video || "";
             if (giftNewVideo) {
                 btnSave.innerHTML = "🔐 جاري تشفير الفيديو...";
@@ -1224,7 +1228,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
                 };
             }
             updatePayload.video = videoData;
-        }
+            updatePayload.videoUrl = "";  // ✅ نحذف الحقل القديم
 
         // ============================================================
         // 📖 كتاب ذكريات (محمي)
