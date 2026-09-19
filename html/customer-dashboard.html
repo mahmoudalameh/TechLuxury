@@ -33,28 +33,27 @@
             margin-bottom: 30px;
         }
 
-        /* ✅ أيقونة قفل للصور */
-.image-locked {
-    width: 70px;
-    height: 70px;
-    background: #0f172a;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent-gold);
-    font-size: 1.5rem;
-    position: relative;
-}
+        .image-locked {
+            width: 70px;
+            height: 70px;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-gold);
+            font-size: 1.5rem;
+            position: relative;
+        }
 
-.image-locked::after {
-    content: '🔒';
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    font-size: 0.75rem;
-}
+        .image-locked::after {
+            content: '🔒';
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            font-size: 0.75rem;
+        }
 
         .btn-logout {
             background: rgba(239, 68, 68, 0.2);
@@ -141,7 +140,6 @@
         }
         .btn-edit-memory:hover { background: #2563eb; }
 
-        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -200,6 +198,8 @@
         .form-group input[type="date"],
         .form-group input[type="email"],
         .form-group input[type="url"],
+        .form-group input[type="number"],
+        .form-group select,
         .form-group textarea {
             width: 100%;
             padding: 10px;
@@ -239,7 +239,6 @@
 
         .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* اختيار نوع الكرت */
         .type-selector {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -255,6 +254,7 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
         }
 
         .type-option:hover {
@@ -287,6 +287,28 @@
             color: var(--text-muted);
             display: block;
             line-height: 1.4;
+        }
+
+        .type-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .type-badge.protected {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .type-badge.public {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
         }
 
         .music-box {
@@ -342,7 +364,6 @@
 
         .hidden { display: none !important; }
 
-        /* Events (كتاب الذكريات) */
         .events-list {
             display: flex;
             flex-direction: column;
@@ -419,7 +440,6 @@
             margin-bottom: 15px;
         }
 
-        /* زر اختيار الإيموجي */
         .emoji-picker {
             display: flex;
             gap: 6px;
@@ -447,7 +467,6 @@
             background: rgba(226, 183, 20, 0.15);
         }
 
-        /* ✅ قائمة السوشيال ميديا / الهواتف / المواقع المتعددة */
         .social-list {
             display: flex;
             flex-direction: column;
@@ -475,10 +494,6 @@
             font-size: 0.95rem;
         }
 
-        .social-item input::placeholder {
-            color: #64748b;
-        }
-
         .btn-remove-social {
             background: rgba(239, 68, 68, 0.15);
             color: #f87171;
@@ -491,10 +506,6 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-        }
-
-        .btn-remove-social:hover {
-            background: rgba(239, 68, 68, 0.3);
         }
 
         .btn-add-social {
@@ -520,18 +531,11 @@
     <div class="container">
         <header>
             <div>
-                <h2>
-                    أهلاً بك، <span id="userName">جاري التحميل...</span> 👋
-                </h2>
-
-                <p style="color: var(--text-muted); font-size: 0.9rem;">
-                    مرحباً بك في Tech Luxury
-                </p>
+                <h2>أهلاً بك، <span id="userName">جاري التحميل...</span> 👋</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">مرحباً بك في Tech Luxury</p>
             </div>
-
             <button id="btnLogout" class="btn-logout">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                تسجيل الخروج
+                <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
             </button>
         </header>
 
@@ -612,7 +616,7 @@
 
                         <div class="hint">
                             <i class="fa-solid fa-lightbulb"></i>
-                            أضف مناسبة لكل صفحة في كتاب الذكريات. مثال: أول لقاء، عيد ميلاد، رحلة، تخرج...
+                            أضف مناسبة لكل صفحة في كتاب الذكريات.
                         </div>
 
                         <div class="events-list" id="eventsList"></div>
@@ -641,17 +645,16 @@
 
                         <div class="form-group">
                             <label>نبذة تعريفية</label>
-                            <textarea id="bizBio" rows="3" placeholder="اكتب نبذة قصيرة عنك أو عن مؤسستك..."></textarea>
+                            <textarea id="bizBio" rows="3" placeholder="اكتب نبذة قصيرة..."></textarea>
                         </div>
 
                         <div class="form-group">
                             <label>الخدمات / ما تقدمه</label>
-                            <textarea id="bizServices" rows="3" placeholder="مثال: تصميم مواقع، تطبيقات، هوية بصرية..."></textarea>
+                            <textarea id="bizServices" rows="3" placeholder="مثال: تصميم مواقع، تطبيقات..."></textarea>
                         </div>
 
                         <h3 class="section-title"><i class="fa-solid fa-address-book"></i> معلومات التواصل</h3>
 
-                        <!-- ✅ أرقام الهاتف المتعددة -->
                         <div class="form-group">
                             <label>📱 أرقام الهاتف</label>
                             <div id="phoneList" class="social-list"></div>
@@ -660,12 +663,11 @@
                             </button>
                         </div>
 
-                        <!-- ✅ المواقع الإلكترونية المتعددة -->
                         <div class="form-group">
                             <label>🌐 المواقع الإلكترونية</label>
                             <div id="websiteList" class="social-list"></div>
                             <button type="button" id="btnAddWebsite" class="btn-add-social">
-                                <i class="fa-solid fa-plus"></i> إضافة موقع إلكتروني
+                                <i class="fa-solid fa-plus"></i> إضافة موقع
                             </button>
                         </div>
 
@@ -679,14 +681,13 @@
                             <input type="text" id="bizAddress" placeholder="عمّان، الأردن">
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-share-nodes"></i> السوشيال ميديا (اختياري)</h3>
+                        <h3 class="section-title"><i class="fa-solid fa-share-nodes"></i> السوشيال ميديا</h3>
 
-                        <!-- ✅ حسابات إنستغرام المتعددة -->
                         <div class="form-group">
                             <label>📸 حسابات إنستغرام</label>
                             <div id="instagramList" class="social-list"></div>
                             <button type="button" id="btnAddInstagram" class="btn-add-social">
-                                <i class="fa-solid fa-plus"></i> إضافة حساب إنستغرام
+                                <i class="fa-solid fa-plus"></i> إضافة حساب
                             </button>
                         </div>
 
@@ -711,6 +712,92 @@
                         </div>
                     </div>
 
+                    <!-- نوع 4: بطاقة حيوانات 🐾 (جديد) -->
+                    <div id="petFields" class="hidden">
+                        <div class="hint">
+                            <i class="fa-solid fa-paw"></i>
+                            بطاقة الحيوانات <strong>عامة</strong> — يمكن لأي شخص يفتح الرابط رؤيتها بدون كلمة مرور. مفيدة إذا ضاع حيوانك الأليف.
+                        </div>
+
+                        <div class="form-group">
+                            <label>🐾 اسم الحيوان</label>
+                            <input type="text" id="petName" placeholder="مثال: ليو">
+                        </div>
+
+                        <div class="form-group">
+                            <label>🐾 نوع الحيوان</label>
+                            <select id="petType">
+                                <option value="">— اختر —</option>
+                                <option value="قط">🐱 قط</option>
+                                <option value="كلب">🐶 كلب</option>
+                                <option value="طير">🐦 طير</option>
+                                <option value="أرنب">🐰 أرنب</option>
+                                <option value="سمكة">🐠 سمكة</option>
+                                <option value="سلحفاة">🐢 سلحفاة</option>
+                                <option value="هامستر">🐹 هامستر</option>
+                                <option value="آخر">🐾 آخر</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>🧬 السلالة</label>
+                            <input type="text" id="petBreed" placeholder="مثال: شيرازي">
+                        </div>
+
+                        <div class="form-group">
+                            <label>🎂 العمر</label>
+                            <input type="text" id="petAge" placeholder="مثال: 3 سنوات">
+                        </div>
+
+                        <div class="form-group">
+                            <label>⚖️ الوزن</label>
+                            <input type="text" id="petWeight" placeholder="مثال: 4 كجم">
+                        </div>
+
+                        <div class="form-group">
+                            <label>🎨 اللون</label>
+                            <input type="text" id="petColor" placeholder="مثال: أبيض مع رمادي">
+                        </div>
+
+                        <div class="form-group">
+                            <label>📝 ملاحظات (حساسية، أدوية، طعام خاص)</label>
+                            <textarea id="petNotes" rows="3" placeholder="مثال: حساسية من الدجاج، يحتاج دواء يومي..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>💉 آخر تطعيم</label>
+                            <input type="date" id="petVaccinations">
+                        </div>
+
+                        <h3 class="section-title"><i class="fa-solid fa-user"></i> معلومات المالك</h3>
+
+                        <div class="form-group">
+                            <label>👤 اسم المالك</label>
+                            <input type="text" id="petOwnerName" placeholder="اسمك الكامل">
+                        </div>
+
+                        <div class="form-group">
+                            <label>📱 رقم الهاتف (للتواصل إذا ضاع الحيوان)</label>
+                            <input type="tel" id="petOwnerPhone" placeholder="+962 7XXXXXXXX">
+                        </div>
+
+                        <div class="form-group">
+                            <label>📍 العنوان</label>
+                            <input type="text" id="petAddress" placeholder="عمّان، الأردن">
+                        </div>
+
+                        <h3 class="section-title"><i class="fa-solid fa-camera"></i> صورة الحيوان</h3>
+                        <div class="form-group">
+                            <label>الصورة الحالية</label>
+                            <div class="current-images-container" id="petPhotoContainer"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>📤 رفع صورة جديدة</label>
+                            <input type="file" id="petPhoto" accept="image/*">
+                            <span class="file-status" id="petPhotoStatus"></span>
+                        </div>
+                    </div>
+
                     <!-- الموسيقى العامة -->
                     <h3 class="section-title"><i class="fa-solid fa-music"></i> موسيقى الخلفية</h3>
                     <div class="music-box">
@@ -721,15 +808,6 @@
                         </div>
                     </div>
 
-                    <!-- تغيير النوع -->
-                    <button type="button" id="btnChangeType" style="
-                        background: transparent; color: var(--text-muted);
-                        border: 1px solid var(--border-color); padding: 8px 16px;
-                        border-radius: 8px; cursor: pointer; margin-top: 15px; font-size: 0.85rem;
-                    ">
-                        <i class="fa-solid fa-arrows-rotate"></i> تغيير نوع الكرت
-                    </button>
-
                     <button type="submit" class="btn-save" id="btnSaveData" style="margin-top:20px;">
                         <i class="fa-solid fa-floppy-disk"></i> حفظ الكرت
                     </button>
@@ -737,37 +815,38 @@
             </form>
         </div>
     </div>
-    <!-- ===== Modal كلمة المرور ===== -->
-<div class="modal-overlay" id="passwordModal">
-    <div class="modal-card" style="max-width: 480px;">
-        <div class="modal-header">
-            <h3 id="passwordModalTitle"><i class="fa-solid fa-lock"></i> كلمة المرور</h3>
-            <button class="modal-close" id="btnClosePasswordModal"><i class="fa-solid fa-xmark"></i></button>
+
+    <!-- Modal كلمة المرور -->
+    <div class="modal-overlay" id="passwordModal">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 id="passwordModalTitle"><i class="fa-solid fa-lock"></i> كلمة المرور</h3>
+                <button class="modal-close" id="btnClosePasswordModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p id="passwordModalDesc" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6;"></p>
+
+            <div class="form-group">
+                <label>🔐 كلمة المرور</label>
+                <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور..." autocomplete="new-password">
+            </div>
+
+            <div class="form-group" id="confirmPasswordGroup" style="display:none;">
+                <label>🔁 تأكيد كلمة المرور</label>
+                <input type="password" id="confirmPasswordInput" placeholder="أعد إدخال كلمة المرور..." autocomplete="new-password">
+            </div>
+
+            <p class="error-msg" id="passwordError" style="display:none; color:#f87171; font-size:0.85rem; margin-top:10px;"></p>
+
+            <div style="background: rgba(226, 183, 20, 0.08); border: 1px solid rgba(226, 183, 20, 0.3); border-radius: 8px; padding: 12px; margin-top: 15px; font-size: 0.8rem; color: #fbbf24; line-height: 1.6;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <strong>مهم:</strong> احفظ كلمة المرور جيداً، فلا يمكن استعادتها.
+            </div>
+
+            <button type="button" class="btn-save" id="btnPasswordConfirm" style="margin-top: 20px;">
+                <i class="fa-solid fa-check"></i> تأكيد
+            </button>
         </div>
-        <p id="passwordModalDesc" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6;"></p>
-
-        <div class="form-group">
-            <label>🔐 كلمة المرور</label>
-            <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور..." autocomplete="new-password">
-        </div>
-
-        <div class="form-group" id="confirmPasswordGroup" style="display:none;">
-            <label>🔁 تأكيد كلمة المرور</label>
-            <input type="password" id="confirmPasswordInput" placeholder="أعد إدخال كلمة المرور..." autocomplete="new-password">
-        </div>
-
-        <p class="error-msg" id="passwordError" style="display:none; color:#f87171; font-size:0.85rem; margin-top:10px;"></p>
-
-        <div style="background: rgba(226, 183, 20, 0.08); border: 1px solid rgba(226, 183, 20, 0.3); border-radius: 8px; padding: 12px; margin-top: 15px; font-size: 0.8rem; color: #fbbf24; line-height: 1.6;">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <strong>مهم:</strong> احفظ كلمة المرور جيداً، فلا يمكن استعادتها. ستحتاجها لفتح الكرت وعرض الرسائل والصور.
-        </div>
-
-        <button type="button" class="btn-save" id="btnPasswordConfirm" style="margin-top: 20px;">
-            <i class="fa-solid fa-check"></i> تأكيد
-        </button>
     </div>
-</div>
 
     <script type="module" src="../js/customer-dashboard.js"></script>
 
