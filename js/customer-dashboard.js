@@ -80,8 +80,14 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
 function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
-        formData.append("file", file);
+        
+        // ✅ اسم فريد
+        const ext = file.name.split(".").pop() || "bin";
+        const uniqueFilename = `${resourceType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+        formData.append("file", file, uniqueFilename);
         formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        formData.append("folder", "techluxury/public");
+        
         const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
 
         const xhr = new XMLHttpRequest();
@@ -108,6 +114,7 @@ function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
         xhr.send(formData);
     });
 }
+
 
 async function compressImage(file, maxWidth = 1920, quality = 0.85) {
     if (!file.type.startsWith("image/")) return file;
