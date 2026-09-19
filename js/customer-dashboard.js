@@ -31,13 +31,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ===== Cloudinary =====
-const CLOUDINARY_CLOUD_NAME = "c1j4mv6v";
+const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
 const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
-/**
- * رفع ملف مشفر إلى Cloudinary
- * نستخدم resource_type=raw لأن الملفات مشفرة (ليست صور/فيديو)
- */
 function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
@@ -72,9 +68,6 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
     });
 }
 
-/**
- * رفع ملف عادي (غير مشفر) — للموسيقى فقط
- */
 function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
@@ -135,11 +128,38 @@ async function compressImage(file, maxWidth = 1920, quality = 0.85) {
     });
 }
 
-// ===== أنواع الكروت =====
+// ============================================================
+// 🎴 أنواع الكروت (مع خاصية protected)
+// ============================================================
 const CARD_TYPES = [
-    { id: "gift", label: "كرت هدية", icon: "fa-gift", desc: "صور + فيديو + موسيقى + رسالة" },
-    { id: "memory_book", label: "كتاب ذكريات", icon: "fa-book-open", desc: "صفحات متعددة لكل مناسبة" },
-    { id: "business_card", label: "بطاقة عمل", icon: "fa-id-card", desc: "بياناتك المهنية ووسائل التواصل" }
+    { 
+        id: "gift", 
+        label: "كرت هدية", 
+        icon: "fa-gift", 
+        desc: "صور + فيديو + موسيقى + رسالة",
+        protected: true 
+    },
+    { 
+        id: "memory_book", 
+        label: "كتاب ذكريات", 
+        icon: "fa-book-open", 
+        desc: "صفحات متعددة لكل مناسبة",
+        protected: true 
+    },
+    { 
+        id: "business_card", 
+        label: "بطاقة عمل", 
+        icon: "fa-id-card", 
+        desc: "بياناتك المهنية ووسائل التواصل",
+        protected: false 
+    },
+    { 
+        id: "pet_card", 
+        label: "بطاقة حيوانات", 
+        icon: "fa-paw", 
+        desc: "بطاقة لحيوانك الأليف — عامة",
+        protected: false 
+    }
 ];
 
 // ===== الحالة العامة =====
@@ -157,6 +177,10 @@ let bizInstagramList = [];
 let bizPhoneList = [];
 let bizWebsiteList = [];
 let newBgMusicFile = null;
+
+// 🐾 بطاقة الحيوانات
+let petNewPhoto = null;
+let petCurrentPhoto = "";
 
 // 🔐 المفتاح الحالي
 let currentEncryptionKey = null;
@@ -206,7 +230,7 @@ function showPasswordScreen(cardId, salt, isNewPassword, onSuccess) {
 
     if (isNewPassword) {
         title.innerHTML = `<i class="fa-solid fa-lock"></i> إنشاء كلمة مرور`;
-        desc.textContent = "لحماية رسائل وصور وفيديو كرتك، اختر كلمة مرور قوية. احفظها جيداً، فلن نستطيع استعادتها لك.";
+        desc.textContent = "لحماية رسائل وصور وفيديو كرتك، اختر كلمة مرور قوية. احفظها جيداً.";
         confirmGroup.style.display = "block";
     } else {
         title.innerHTML = `<i class="fa-solid fa-lock"></i> أدخل كلمة المرور`;
@@ -278,7 +302,7 @@ onAuthStateChanged(auth, async (user) => {
             if (userNameEl) userNameEl.textContent = user.email.split("@")[0];
         }
     } catch (error) {
-        console.error("خطأ في جلب بيانات المستخدم:", error);
+        console.error("خطأ:", error);
         const userNameEl = document.getElementById("userName");
         if (userNameEl) userNameEl.textContent = user.email.split("@")[0];
     }
@@ -294,7 +318,7 @@ document.getElementById("btnLogout")?.addEventListener("click", async () => {
 });
 
 // ============================================================
-// 🔗 ربط الكرت
+// 🔗 ربط الكرت (بدون طلب كلمة مرور — ستُطلب عند اختيار نوع محمي)
 // ============================================================
 document.getElementById("btnClaimCard")?.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -321,57 +345,23 @@ document.getElementById("btnClaimCard")?.addEventListener("click", async (e) => 
             alert("⚠️ هذا الكرت مربوط بحسابك بالفعل"); return;
         }
 
-        // ✅ إذا الكرت جديد (بدون salt) → اطلب كلمة مرور جديدة
-        if (!data.salt) {
-            // ولّد salt
-            const newSalt = generateSalt();
-            const saltB64 = bytesToBase64Url(newSalt);
+        // اربط الكرت
+        await updateDoc(cardRef, {
+            ownerId: currentUser.uid,
+            ownerEmail: currentUser.email,
+            claimedAt: serverTimestamp(),
+            type: data.type || null,
+            updatedAt: serverTimestamp()
+        });
 
-            // اطلب كلمة مرور أولاً
-            btn.disabled = false;
-            btn.innerText = "ربط الكرت";
-
-            showPasswordScreen(cardId, newSalt, true, async (key) => {
-                try {
-                    // الآن اربط الكرت + خزّن salt
-                    await updateDoc(cardRef, {
-                        ownerId: currentUser.uid,
-                        ownerEmail: currentUser.email,
-                        claimedAt: serverTimestamp(),
-                        salt: saltB64,
-                        encryptionVersion: 1,
-                        type: data.type || null,
-                        updatedAt: serverTimestamp()
-                    });
-
-                    alert("✅ تم ربط الكرت وحمايته بكلمة المرور!");
-                    cardIdInput.value = "";
-                    await loadUserCards(currentUser.uid);
-                    openEditModal(cardId, { ...data, ownerId: currentUser.uid, salt: saltB64 });
-                } catch (err) {
-                    console.error(err);
-                    alert("حدث خطأ أثناء الربط: " + err.message);
-                }
-            });
-        } else {
-            // الكرت له salt بالفعل → اربطه عادي
-            await updateDoc(cardRef, {
-                ownerId: currentUser.uid,
-                ownerEmail: currentUser.email,
-                claimedAt: serverTimestamp(),
-                type: data.type || null
-            });
-
-            alert("✅ تم ربط الكرت بنجاح!");
-            cardIdInput.value = "";
-            await loadUserCards(currentUser.uid);
-            requestEditWithPassword(cardId, { ...data, ownerId: currentUser.uid });
-            btn.disabled = false;
-            btn.innerText = "ربط الكرت";
-        }
+        alert("✅ تم ربط الكرت بنجاح!");
+        cardIdInput.value = "";
+        await loadUserCards(currentUser.uid);
+        openEditModal(cardId, { ...data, ownerId: currentUser.uid });
     } catch (error) {
         console.error(error);
         alert("حدث خطأ: " + error.message);
+    } finally {
         btn.disabled = false;
         btn.innerText = "ربط الكرت";
     }
@@ -411,8 +401,8 @@ async function loadUserCards(uid) {
                    </div>`;
 
             const lockIcon = card.salt 
-                ? `<i class="fa-solid fa-lock" style="color:#22c55e;font-size:0.85rem;" title="محمي بكلمة مرور"></i>` 
-                : `<i class="fa-solid fa-lock-open" style="color:#f59e0b;font-size:0.85rem;" title="غير محمي"></i>`;
+                ? `<i class="fa-solid fa-lock" style="color:#22c55e;font-size:0.85rem;" title="محمي"></i>` 
+                : `<i class="fa-solid fa-lock-open" style="color:#f59e0b;font-size:0.85rem;" title="عام"></i>`;
 
             const cardEl = document.createElement("div");
             cardEl.className = "my-card";
@@ -439,17 +429,16 @@ async function loadUserCards(uid) {
 }
 
 // ============================================================
-// 🔐 طلب كلمة المرور قبل التعديل
+// 🔐 طلب كلمة المرور قبل التعديل (فقط إذا الكرت محمي)
 // ============================================================
 async function requestEditWithPassword(cardId, card) {
     if (!card.salt) {
-        // كرت قديم بدون تشفير
+        // كرت غير مشفر (عام)
         currentEncryptionKey = null;
         openEditModal(cardId, card);
         return;
     }
 
-    // إذا المفتاح موجود في الجلسة → افتح مباشرة
     if (currentEncryptionKey && sessionStorage.getItem(`enc_key_${cardId}`)) {
         openEditModal(cardId, card);
         return;
@@ -462,11 +451,11 @@ async function requestEditWithPassword(cardId, card) {
 }
 
 // ============================================================
-// 🖼️ عرض أنواع الكروت
+// 🖼️ عرض أنواع الكروت (مع شارات "محمي"/"عام")
 // ============================================================
 function renderTypeSelector() {
     const typeSelector = document.getElementById("typeSelector");
-    if (!typeSelector) { console.error("❌ typeSelector غير موجود"); return; }
+    if (!typeSelector) return;
 
     typeSelector.innerHTML = "";
 
@@ -474,7 +463,13 @@ function renderTypeSelector() {
         const option = document.createElement("div");
         option.className = "type-option";
         option.dataset.typeId = t.id;
+
+        const badgeHtml = t.protected
+            ? `<div class="type-badge protected">🔒 محمي</div>`
+            : `<div class="type-badge public">🌐 عام</div>`;
+
         option.innerHTML = `
+            ${badgeHtml}
             <i class="fa-solid ${t.icon}"></i>
             <span>${t.label}</span>
             <small>${t.desc}</small>
@@ -544,25 +539,30 @@ function resetFormState() {
     bizPhoneList = [];
     bizWebsiteList = [];
     newBgMusicFile = null;
+    petNewPhoto = null;
+    petCurrentPhoto = "";
     eventsState = [];
 
     const ids = [
         "giftTitle", "giftMessage", "bookTitle", "bizName", "bizJobTitle",
         "bizCompany", "bizBio", "bizServices", "bizEmail",
-        "bizAddress", "bizFacebook", "bizLinkedin"
+        "bizAddress", "bizFacebook", "bizLinkedin",
+        "petName", "petType", "petBreed", "petAge", "petWeight",
+        "petColor", "petNotes", "petVaccinations",
+        "petOwnerName", "petOwnerPhone", "petAddress"
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
 
-    const fileIds = ["giftImages", "giftVideo", "bizLogo", "editBgMusic"];
+    const fileIds = ["giftImages", "giftVideo", "bizLogo", "editBgMusic", "petPhoto"];
     fileIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
 
-    const statusIds = ["giftImagesStatus", "giftVideoStatus", "bizLogoStatus", "bgMusicStatus"];
+    const statusIds = ["giftImagesStatus", "giftVideoStatus", "bizLogoStatus", "bgMusicStatus", "petPhotoStatus"];
     statusIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.textContent = "";
@@ -577,6 +577,9 @@ function resetFormState() {
     const bizLogoContainerEl = document.getElementById("bizLogoContainer");
     if (bizLogoContainerEl) bizLogoContainerEl.innerHTML = "";
 
+    const petPhotoContainerEl = document.getElementById("petPhotoContainer");
+    if (petPhotoContainerEl) petPhotoContainerEl.innerHTML = "";
+
     const eventsListEl = document.getElementById("eventsList");
     if (eventsListEl) eventsListEl.innerHTML = "";
 
@@ -590,31 +593,54 @@ function resetFormState() {
     if (websiteListEl) websiteListEl.innerHTML = "";
 }
 
-// ===== تأكيد النوع =====
+// ============================================================
+// ✅ تأكيد النوع (مع طلب كلمة مرور إذا محمي)
+// ============================================================
 document.getElementById("btnConfirmType")?.addEventListener("click", async () => {
     if (!selectedType) {
         alert("يرجى اختيار نوع الكرت أولاً");
         return;
     }
+
+    // إذا النوع محمي → اطلب كلمة مرور جديدة
+    if (selectedType.protected && !currentEncryptionKey) {
+        const cardId = document.getElementById("editCardId").value;
+        const cardRef = doc(db, "cards", cardId);
+        const cardSnap = await getDoc(cardRef);
+        const cardData = cardSnap.data();
+
+        // إذا لم يوجد salt بعد → ولّد واحداً
+        if (!cardData.salt) {
+            const newSalt = generateSalt();
+            const saltB64 = bytesToBase64Url(newSalt);
+
+            showPasswordScreen(cardId, newSalt, true, async (key) => {
+                // خزّن salt في Firestore
+                await updateDoc(cardRef, {
+                    salt: saltB64,
+                    encryptionVersion: 1,
+                    updatedAt: serverTimestamp()
+                });
+                currentCard.salt = saltB64;
+                await showCardFields(currentCard);
+            });
+            return;
+        } else {
+            // الكرت له salt بالفعل → اطلب كلمة المرور
+            const salt = base64UrlToBytes(cardData.salt);
+            showPasswordScreen(cardId, salt, false, async (key) => {
+                await showCardFields(currentCard);
+            });
+            return;
+        }
+    }
+
+    // نوع عام → تابع مباشرة
     await showCardFields(currentCard || {});
 });
 
-// ===== تغيير النوع =====
-document.getElementById("btnChangeType")?.addEventListener("click", () => {
-    if (!confirm("سيتم فقدان التغييرات غير المحفوظة. متابعة؟")) return;
-    selectedType = null;
-    resetFormState();
-    renderTypeSelector();
-    const btnConfirmType = document.getElementById("btnConfirmType");
-    if (btnConfirmType) btnConfirmType.disabled = true;
-    show(document.getElementById("stepTypeSelect"));
-    hide(document.getElementById("stepCardFields"));
-    const modalTitle = document.getElementById("modalTitle");
-    if (modalTitle) modalTitle.innerHTML = `<i class="fa-solid fa-list"></i> اختر نوع الكرت`;
-});
-
 // ============================================================
-// 📋 عرض الحقول حسب النوع (مع فك التشفير)
+// 📋 عرض الحقول حسب النوع (مع فك التشفير عند اللزوم)
 // ============================================================
 async function showCardFields(card) {
     if (!selectedType) return;
@@ -628,28 +654,23 @@ async function showCardFields(card) {
     hide(document.getElementById("giftFields"));
     hide(document.getElementById("bookFields"));
     hide(document.getElementById("businessFields"));
+    hide(document.getElementById("petFields"));
 
     // ========== كرت هدية ==========
     if (selectedType.id === "gift") {
         show(document.getElementById("giftFields"));
         document.getElementById("giftTitle").value = card.title || "";
 
-        // فك تشفير الرسالة
         if (card.message && typeof card.message === "object" && card.message.ciphertext) {
             try {
                 if (currentEncryptionKey) {
-                    const decrypted = await decryptText(
-                        card.message.ciphertext,
-                        card.message.iv,
-                        currentEncryptionKey
-                    );
+                    const decrypted = await decryptText(card.message.ciphertext, card.message.iv, currentEncryptionKey);
                     document.getElementById("giftMessage").value = decrypted;
                 } else {
                     document.getElementById("giftMessage").value = "";
-                    document.getElementById("giftMessage").placeholder = "🔒 الرسالة مشفرة (أدخل كلمة المرور)";
+                    document.getElementById("giftMessage").placeholder = "🔒 الرسالة مشفرة";
                 }
             } catch (e) {
-                console.error("فشل فك تشفير الرسالة:", e);
                 document.getElementById("giftMessage").value = "";
                 document.getElementById("giftMessage").placeholder = "⚠️ كلمة المرور خاطئة";
             }
@@ -661,7 +682,7 @@ async function showCardFields(card) {
         giftImagesToDelete = [];
         renderGiftImages();
 
-        if (card.videoUrl) {
+        if (card.video) {
             document.getElementById("giftVideoStatus").textContent = "✅ يوجد فيديو محفوظ";
         }
     }
@@ -673,26 +694,19 @@ async function showCardFields(card) {
 
         eventsState = JSON.parse(JSON.stringify(card.events || []));
 
-        // فك تشفير رسائل الصفحات
         if (currentEncryptionKey) {
             for (let i = 0; i < eventsState.length; i++) {
                 const evt = eventsState[i];
                 if (evt.message && typeof evt.message === "object" && evt.message.ciphertext) {
                     try {
-                        const decrypted = await decryptText(
-                            evt.message.ciphertext,
-                            evt.message.iv,
-                            currentEncryptionKey
-                        );
+                        const decrypted = await decryptText(evt.message.ciphertext, evt.message.iv, currentEncryptionKey);
                         eventsState[i].message = decrypted;
                     } catch (e) {
-                        console.error(`فشل فك تشفير رسالة الصفحة ${i + 1}:`, e);
                         eventsState[i].message = "";
                     }
                 }
             }
         } else {
-            // بدون مفتاح
             for (let i = 0; i < eventsState.length; i++) {
                 if (eventsState[i].message && typeof eventsState[i].message === "object") {
                     eventsState[i].message = "";
@@ -719,15 +733,32 @@ async function showCardFields(card) {
 
         bizInstagramList = toArray(card.instagram);
         renderInstagramList();
-
         bizPhoneList = toArray(card.phone);
         renderPhoneList();
-
         bizWebsiteList = toArray(card.website);
         renderWebsiteList();
 
         bizCurrentLogo = card.logoUrl || "";
         renderBizLogo();
+    }
+
+    // ========== بطاقة حيوانات 🐾 ==========
+    if (selectedType.id === "pet_card") {
+        show(document.getElementById("petFields"));
+        document.getElementById("petName").value = card.petName || "";
+        document.getElementById("petType").value = card.petType || "";
+        document.getElementById("petBreed").value = card.petBreed || "";
+        document.getElementById("petAge").value = card.petAge || "";
+        document.getElementById("petWeight").value = card.petWeight || "";
+        document.getElementById("petColor").value = card.petColor || "";
+        document.getElementById("petNotes").value = card.petNotes || "";
+        document.getElementById("petVaccinations").value = card.petVaccinations || "";
+        document.getElementById("petOwnerName").value = card.petOwnerName || "";
+        document.getElementById("petOwnerPhone").value = card.petOwnerPhone || "";
+        document.getElementById("petAddress").value = card.petAddress || "";
+
+        petCurrentPhoto = card.petPhoto || "";
+        renderPetPhoto();
     }
 
     if (card.bgMusicUrl) {
@@ -861,6 +892,29 @@ function renderBizLogo() {
     });
 }
 
+// ===== 🐾 عرض صورة الحيوان =====
+function renderPetPhoto() {
+    const container = document.getElementById("petPhotoContainer");
+    if (!container) return;
+
+    if (!petCurrentPhoto) {
+        container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا توجد صورة محفوظة.</p>";
+        return;
+    }
+    container.innerHTML = `
+        <div class="image-thumb">
+            <img src="${petCurrentPhoto}" style="width:100px;height:100px;">
+            <button type="button" id="removePetPhoto">×</button>
+        </div>
+    `;
+    document.getElementById("removePetPhoto").addEventListener("click", () => {
+        if (confirm("حذف صورة الحيوان؟")) {
+            petCurrentPhoto = "";
+            renderPetPhoto();
+        }
+    });
+}
+
 // ===== إنشاء صفحة فارغة =====
 function createEmptyEvent() {
     return {
@@ -870,7 +924,7 @@ function createEmptyEvent() {
         date: "",
         message: "",
         images: [],
-        videoUrl: "",
+        video: "",
         _newImages: [],
         _newVideo: null
     };
@@ -936,10 +990,10 @@ function renderEvents() {
             </div>
 
             <div class="form-group">
-                <label>🎬 ${evt.videoUrl ? "استبدال الفيديو الحالي" : "فيديو الصفحة (اختياري)"}</label>
+                <label>🎬 ${evt.video ? "استبدال الفيديو الحالي" : "فيديو الصفحة (اختياري)"}</label>
                 <input type="file" class="evt-video" accept="video/*" data-index="${index}">
                 <span class="file-status evt-video-status" data-index="${index}">
-                    ${evt.videoUrl ? "✅ يوجد فيديو محفوظ" : ""}
+                    ${evt.video ? "✅ يوجد فيديو محفوظ" : ""}
                 </span>
             </div>
         `;
@@ -986,7 +1040,7 @@ function renderEvents() {
             const status = el.querySelector(`.evt-video-status[data-index="${index}"]`);
             if (status) status.textContent = e.target.files[0]
                 ? "📎 فيديو جديد جاهز"
-                : (eventsState[index].videoUrl ? "✅ يوجد فيديو محفوظ" : "");
+                : (eventsState[index].video ? "✅ يوجد فيديو محفوظ" : "");
         });
     });
 }
@@ -1039,25 +1093,31 @@ document.getElementById("btnAddEvent")?.addEventListener("click", () => {
 document.getElementById("giftImages")?.addEventListener("change", (e) => {
     giftNewImages = Array.from(e.target.files);
     document.getElementById("giftImagesStatus").textContent =
-        giftNewImages.length ? `📎 ${giftNewImages.length} صورة جاهزة (سيتم تشفيرها)` : "";
+        giftNewImages.length ? `📎 ${giftNewImages.length} صورة جاهزة` : "";
 });
 
 document.getElementById("giftVideo")?.addEventListener("change", (e) => {
     giftNewVideo = e.target.files[0] || null;
     document.getElementById("giftVideoStatus").textContent =
-        giftNewVideo ? "📎 فيديو جديد جاهز (سيتم تشفيره)" : "";
+        giftNewVideo ? "📎 فيديو جديد جاهز" : "";
 });
 
 document.getElementById("bizLogo")?.addEventListener("change", (e) => {
     bizNewLogo = e.target.files[0] || null;
     document.getElementById("bizLogoStatus").textContent =
-        bizNewLogo ? "📎 شعار جديد جاهز (سيتم تشفيره)" : "";
+        bizNewLogo ? "📎 شعار جديد جاهز" : "";
+});
+
+document.getElementById("petPhoto")?.addEventListener("change", (e) => {
+    petNewPhoto = e.target.files[0] || null;
+    document.getElementById("petPhotoStatus").textContent =
+        petNewPhoto ? "📎 صورة جديدة جاهزة" : "";
 });
 
 document.getElementById("editBgMusic")?.addEventListener("change", (e) => {
     newBgMusicFile = e.target.files[0] || null;
     document.getElementById("bgMusicStatus").textContent =
-        newBgMusicFile ? "📎 موسيقى جديدة جاهزة (بدون تشفير)" : "";
+        newBgMusicFile ? "📎 موسيقى جديدة جاهزة" : "";
 });
 
 // ===== إغلاق النافذة =====
@@ -1066,7 +1126,7 @@ document.getElementById("btnCloseModal")?.addEventListener("click", () => {
 });
 
 // ============================================================
-// 💾 حفظ الكرت (مع التشفير)
+// 💾 حفظ الكرت
 // ============================================================
 document.getElementById("editCardForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1087,13 +1147,14 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
 
         const oldData = cardSnap.data();
 
-        // ⚠️ تأكد من وجود المفتاح (إذا الكرت محمي)
+        // ⚠️ إذا الكرت محمي → تأكد من وجود المفتاح
         if (oldData.salt && !currentEncryptionKey) {
             throw new Error("يجب إدخال كلمة المرور أولاً");
         }
 
         const updatePayload = {
             type: selectedType.id,
+            protected: selectedType.protected === true,
             updatedAt: serverTimestamp()
         };
 
@@ -1108,12 +1169,11 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         updatePayload.bgMusicUrl = bgMusicUrl;
 
         // ============================================================
-        // 🎁 كرت هدية
+        // 🎁 كرت هدية (محمي)
         // ==========================================
         if (selectedType.id === "gift") {
             updatePayload.title = document.getElementById("giftTitle").value.trim();
 
-            // 🔐 تشفير الرسالة
             const messageText = document.getElementById("giftMessage").value.trim();
             if (messageText) {
                 btnSave.innerHTML = "🔐 جاري تشفير الرسالة...";
@@ -1122,7 +1182,6 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
                 updatePayload.message = "";
             }
 
-            // 🔐 تشفير الصور
             let finalImages = giftCurrentImages.filter(url => !giftImagesToDelete.includes(url));
             if (giftNewImages.length > 0) {
                 for (let i = 0; i < giftNewImages.length; i++) {
@@ -1137,7 +1196,6 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
                         btnSave.innerHTML = `📤 صورة ${i + 1}/${giftNewImages.length} — ${p}%`;
                     });
 
-                    // نخزّن URL + IV + نوع
                     finalImages.push({
                         url: url,
                         iv: bytesToBase64Url(iv),
@@ -1148,8 +1206,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             }
             updatePayload.images = finalImages;
 
-            // 🔐 تشفير الفيديو
-            let videoData = oldData.videoUrl || "";
+            let videoData = oldData.video || "";
             if (giftNewVideo) {
                 btnSave.innerHTML = "🔐 جاري تشفير الفيديو...";
                 const { encryptedBlob, iv } = await encryptFile(giftNewVideo, currentEncryptionKey);
@@ -1170,7 +1227,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         }
 
         // ============================================================
-        // 📖 كتاب ذكريات
+        // 📖 كتاب ذكريات (محمي)
         // ============================================================
         if (selectedType.id === "memory_book") {
             updatePayload.title = document.getElementById("bookTitle").value.trim();
@@ -1189,18 +1246,15 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
                     video: evt.video || ""
                 };
 
-                // 🔐 تشفير رسالة الصفحة
                 if (evt.message && typeof evt.message === "string" && evt.message.trim()) {
                     btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الرسالة...`;
                     processedEvent.message = await encryptText(evt.message.trim(), currentEncryptionKey);
                 } else if (evt.message && typeof evt.message === "object") {
-                    // كانت مشفرة من قبل ولم تُعدّل
                     processedEvent.message = evt.message;
                 } else {
                     processedEvent.message = "";
                 }
 
-                // 🔐 تشفير صور الصفحة
                 if (evt._newImages && evt._newImages.length > 0) {
                     for (let j = 0; j < evt._newImages.length; j++) {
                         btnSave.innerHTML = `📸 صفحة ${i + 1}: ضغط الصورة ${j + 1}...`;
@@ -1223,7 +1277,6 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
                     }
                 }
 
-                // 🔐 تشفير فيديو الصفحة
                 if (evt._newVideo) {
                     btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الفيديو...`;
                     const { encryptedBlob, iv } = await encryptFile(evt._newVideo, currentEncryptionKey);
@@ -1247,7 +1300,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         }
 
         // ============================================================
-        // 💼 بطاقة عمل (لا نشفّر الرسائل هنا — يمكن إضافتها لاحقاً)
+        // 💼 بطاقة عمل (عامة — بدون تشفير)
         // ============================================================
         if (selectedType.id === "business_card") {
             updatePayload.name = document.getElementById("bizName").value.trim();
@@ -1266,28 +1319,47 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
 
             updatePayload.title = updatePayload.name || updatePayload.company || "بطاقة عمل";
 
-            // 🔐 تشفير الشعار
-            let logoData = oldData.logoUrl || "";
+            // ✅ الشعار غير مشفر (بطاقة عمل عامة)
+            let logoUrl = oldData.logoUrl || "";
             if (bizNewLogo) {
-                btnSave.innerHTML = "🖼️ ضغط الشعار...";
-                const compressed = await compressImage(bizNewLogo);
-
-                btnSave.innerHTML = "🔐 تشفير الشعار...";
-                const { encryptedBlob, iv } = await encryptFile(compressed, currentEncryptionKey);
-
                 btnSave.innerHTML = "📤 رفع الشعار...";
-                const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
+                const compressed = await compressImage(bizNewLogo);
+                logoUrl = await uploadToCloudinary(compressed, "image", (p) => {
                     btnSave.innerHTML = `🖼️ رفع الشعار — ${p}%`;
                 });
-
-                logoData = {
-                    url: url,
-                    iv: bytesToBase64Url(iv),
-                    encrypted: true,
-                    mimeType: "image/jpeg"
-                };
             }
-            updatePayload.logo = logoData;
+            updatePayload.logoUrl = logoUrl;
+            updatePayload.logo = "";
+        }
+
+        // ============================================================
+        // 🐾 بطاقة حيوانات (عامة — بدون تشفير)
+        // ============================================================
+        if (selectedType.id === "pet_card") {
+            updatePayload.petName = document.getElementById("petName").value.trim();
+            updatePayload.petType = document.getElementById("petType").value;
+            updatePayload.petBreed = document.getElementById("petBreed").value.trim();
+            updatePayload.petAge = document.getElementById("petAge").value.trim();
+            updatePayload.petWeight = document.getElementById("petWeight").value.trim();
+            updatePayload.petColor = document.getElementById("petColor").value.trim();
+            updatePayload.petNotes = document.getElementById("petNotes").value.trim();
+            updatePayload.petVaccinations = document.getElementById("petVaccinations").value;
+            updatePayload.petOwnerName = document.getElementById("petOwnerName").value.trim();
+            updatePayload.petOwnerPhone = document.getElementById("petOwnerPhone").value.trim();
+            updatePayload.petAddress = document.getElementById("petAddress").value.trim();
+
+            updatePayload.title = updatePayload.petName || "بطاقة حيوان";
+
+            // ✅ صورة الحيوان غير مشفرة
+            let petPhotoUrl = petCurrentPhoto;
+            if (petNewPhoto) {
+                btnSave.innerHTML = "📤 رفع صورة الحيوان...";
+                const compressed = await compressImage(petNewPhoto);
+                petPhotoUrl = await uploadToCloudinary(compressed, "image", (p) => {
+                    btnSave.innerHTML = `🐾 رفع الصورة — ${p}%`;
+                });
+            }
+            updatePayload.petPhoto = petPhotoUrl;
         }
 
         btnSave.innerHTML = "💾 جاري الحفظ...";
@@ -1306,6 +1378,4 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
     }
 });
 
-// ===== تشخيص =====
-console.log("✅ customer-dashboard.js جاهز (مع التشفير)");
-console.log("CARD_TYPES:", CARD_TYPES.length, "أنواع");
+console.log("✅ customer-dashboard.js جاهز (4 أنواع كروت)");
