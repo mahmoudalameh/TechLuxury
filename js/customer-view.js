@@ -25,7 +25,8 @@ const db = getFirestore(app);
 const CARD_TYPES = {
     gift: { label: "كرت هدية", icon: "fa-gift", color: "#ec4899", effect: "hearts" },
     memory_book: { label: "كتاب ذكريات", icon: "fa-book-open", color: "#e2b714", effect: null },
-    business_card: { label: "بطاقة عمل", icon: "fa-id-card", color: "#3b82f6", effect: null }
+    business_card: { label: "بطاقة عمل", icon: "fa-id-card", color: "#3b82f6", effect: null },
+    pet_card: { label: "بطاقة حيوانات", icon: "fa-paw", color: "#22c55e", effect: null }
 };
 
 // ===== العناصر =====
@@ -45,8 +46,6 @@ let currentImageIndex = 0;
 let musicStarted = false;
 let currentBookPage = 0;
 let bookPages = [];
-
-// 🔐 المفتاح الحالي
 let currentEncryptionKey = null;
 let currentCard = null;
 
@@ -81,13 +80,13 @@ async function init() {
             return;
         }
 
-        // 🔐 إذا الكرت محمي بكلمة مرور
-        if (card.salt) {
+        // 🔐 إذا الكرت محمي بكلمة مرور → اطلبها
+        if (card.salt && card.protected) {
             showPasswordPrompt(card);
             return;
         }
 
-        // كرت قديم بدون تشفير → اعرض مباشرة
+        // كرت عام (بطاقة عمل / حيوانات) → اعرض مباشرة
         displayCard(card);
     } catch (error) {
         console.error(error);
@@ -108,7 +107,7 @@ function showPasswordPrompt(card) {
                 <div class="lock-icon"><i class="fa-solid fa-lock"></i></div>
                 <h3>🔐 الكرت محمي</h3>
                 <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
-                    أدخل كلمة المرور لعرض الرسائل والصور والفيديو
+                    أدخل كلمة المرور لعرض المحتوى
                 </p>
                 <input type="password" id="cardPasswordInput" placeholder="كلمة المرور..." autocomplete="off">
                 <button class="btn-unlock" id="btnUnlockCard">
@@ -139,21 +138,15 @@ function showPasswordPrompt(card) {
             const key = await deriveFinalKey(pwd, null, salt);
             currentEncryptionKey = key;
 
-            // محاولة فك تشفير شيء ما للتحقق
-            // نستخدم أول رسالة أو صورة كاختبار
             let testPassed = false;
-            
-            // جرّب فك تشفير الرسالة (إذا موجودة)
+
             if (card.message && typeof card.message === "object" && card.message.ciphertext) {
                 try {
                     await decryptText(card.message.ciphertext, card.message.iv, key);
                     testPassed = true;
-                } catch (e) {
-                    // فشل
-                }
+                } catch (e) {}
             }
-            
-            // إذا لم توجد رسالة → جرّب صورة
+
             if (!testPassed && card.images && card.images.length > 0 && typeof card.images[0] === "object") {
                 try {
                     const imgData = card.images[0];
@@ -161,12 +154,16 @@ function showPasswordPrompt(card) {
                     const blob = await res.blob();
                     await decryptFile(blob, base64UrlToBytes(imgData.iv), key);
                     testPassed = true;
-                } catch (e) {
-                    // فشل
-                }
+                } catch (e) {}
             }
 
-            // إذا لا يوجد شيء للاختبار → اعتبره ناجحاً
+            if (!testPassed && card.events && card.events.length > 0 && card.events[0].message && typeof card.events[0].message === "object") {
+                try {
+                    await decryptText(card.events[0].message.ciphertext, card.events[0].message.iv, key);
+                    testPassed = true;
+                } catch (e) {}
+            }
+
             if (!testPassed && (!card.message || typeof card.message === "string")) {
                 testPassed = true;
             }
@@ -228,6 +225,8 @@ async function displayCard(card, key = null) {
         await renderMemoryBook(card, typeInfo);
     } else if (card.type === "business_card") {
         await renderBusinessCard(card, typeInfo);
+    } else if (card.type === "pet_card") {
+        await renderPetCard(card, typeInfo);
     } else {
         await renderGiftCard(card, typeInfo);
     }
@@ -235,19 +234,12 @@ async function displayCard(card, key = null) {
     document.title = card.title || "ذِكـرى";
 }
 
-// ============================================================
-// 🖼️ تحميل صورة مشفرة وفك تشفيرها
-// ============================================================
+// ===== تحميل صورة مشفرة =====
 async function loadEncryptedImage(imageData) {
-    // إذا كانت صورة قديمة (رابط نصي مباشر)
-    if (typeof imageData === "string") {
-        return imageData;
-    }
+    if (typeof imageData === "string") return imageData;
 
-    // إذا كانت مشفرة
     if (imageData && imageData.encrypted && imageData.url) {
         if (!currentEncryptionKey) return null;
-
         try {
             const res = await fetch(imageData.url);
             const encryptedBlob = await res.blob();
@@ -259,7 +251,6 @@ async function loadEncryptedImage(imageData) {
             return null;
         }
     }
-
     return null;
 }
 
@@ -268,15 +259,12 @@ async function loadEncryptedImage(imageData) {
 // ============================================================
 async function renderGiftCard(card, typeInfo) {
     const imagesData = card.images || [];
-    
-    // فك تشفير الصور
     const decryptedImages = [];
     for (const img of imagesData) {
         const url = await loadEncryptedImage(img);
         if (url) decryptedImages.push(url);
     }
 
-    // فك تشفير الرسالة
     let messageText = "";
     if (card.message) {
         if (typeof card.message === "string") {
@@ -290,7 +278,6 @@ async function renderGiftCard(card, typeInfo) {
         }
     }
 
-    // فك تشفير الفيديو
     let videoUrl = null;
     if (card.video) {
         if (typeof card.video === "string") {
@@ -319,16 +306,10 @@ async function renderGiftCard(card, typeInfo) {
             </div>
         </header>
 
-        ${messageText ? `
-            <div class="message-box">
-                <p>${escapeHtml(messageText)}</p>
-            </div>
-        ` : ""}
+        ${messageText ? `<div class="message-box"><p>${escapeHtml(messageText)}</p></div>` : ""}
 
         ${decryptedImages.length > 0 ? `
-            <h3 class="section-title">
-                <i class="fa-solid fa-images"></i> ألبوم الصور (${decryptedImages.length})
-            </h3>
+            <h3 class="section-title"><i class="fa-solid fa-images"></i> ألبوم الصور (${decryptedImages.length})</h3>
             <div class="album-container" id="albumContainer">
                 <div class="album-viewport" id="albumViewport">
                     <div class="album-counter" id="albumCounter">1 / ${decryptedImages.length}</div>
@@ -338,32 +319,22 @@ async function renderGiftCard(card, typeInfo) {
                         </div>
                     `).join("")}
                     ${decryptedImages.length > 1 ? `
-                        <button class="album-nav-btn prev" id="albumPrev" title="السابق">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </button>
-                        <button class="album-nav-btn next" id="albumNext" title="التالي">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
+                        <button class="album-nav-btn prev" id="albumPrev"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button class="album-nav-btn next" id="albumNext"><i class="fa-solid fa-chevron-left"></i></button>
                     ` : ""}
                 </div>
                 ${decryptedImages.length > 1 ? `
                     <div class="album-dots" id="albumDots">
-                        ${decryptedImages.map((_, i) =>
-                            `<button class="album-dot ${i === 0 ? "active" : ""}" data-dot="${i}"></button>`
-                        ).join("")}
+                        ${decryptedImages.map((_, i) => `<button class="album-dot ${i === 0 ? "active" : ""}" data-dot="${i}"></button>`).join("")}
                     </div>
                 ` : ""}
             </div>
         ` : ""}
 
         ${videoUrl ? `
-            <h3 class="section-title">
-                <i class="fa-solid fa-video"></i> الفيديو
-            </h3>
+            <h3 class="section-title"><i class="fa-solid fa-video"></i> الفيديو</h3>
             <div class="video-wrapper">
-                <video controls playsinline preload="metadata">
-                    <source src="${videoUrl}" type="video/mp4">
-                </video>
+                <video controls playsinline preload="metadata"><source src="${videoUrl}" type="video/mp4"></video>
             </div>
         ` : ""}
     `;
@@ -379,7 +350,6 @@ async function renderMemoryBook(card, typeInfo) {
     bookPages = [];
     const rawEvents = card.events || [];
 
-    // فك تشفير كل صفحة
     for (const evt of rawEvents) {
         let message = "";
         if (evt.message) {
@@ -394,14 +364,12 @@ async function renderMemoryBook(card, typeInfo) {
             }
         }
 
-        // فك تشفير صور الصفحة
         const decryptedImages = [];
         for (const img of (evt.images || [])) {
             const url = await loadEncryptedImage(img);
             if (url) decryptedImages.push(url);
         }
 
-        // فك تشفير فيديو الصفحة
         let videoUrl = null;
         if (evt.video) {
             if (typeof evt.video === "string") {
@@ -413,20 +381,13 @@ async function renderMemoryBook(card, typeInfo) {
                     const iv = base64UrlToBytes(evt.video.iv);
                     const decryptedBlob = await decryptFile(encryptedBlob, iv, currentEncryptionKey);
                     videoUrl = URL.createObjectURL(decryptedBlob);
-                } catch (e) {
-                    console.error("فشل فك تشفير فيديو الصفحة:", e);
-                }
+                } catch (e) {}
             }
         }
 
         bookPages.push({
-            id: evt.id,
-            emoji: evt.emoji,
-            title: evt.title,
-            date: evt.date,
-            message: message,
-            images: decryptedImages,
-            videoUrl: videoUrl
+            id: evt.id, emoji: evt.emoji, title: evt.title, date: evt.date,
+            message: message, images: decryptedImages, videoUrl: videoUrl
         });
     }
 
@@ -437,7 +398,6 @@ async function renderMemoryBook(card, typeInfo) {
             <div class="error-screen">
                 <i class="fa-solid fa-book" style="color: var(--accent);"></i>
                 <h2>الكتاب فارغ</h2>
-                <p style="color: var(--text-muted);">لم يتم إضافة أي صفحات بعد.</p>
             </div>
         `;
         return;
@@ -447,29 +407,18 @@ async function renderMemoryBook(card, typeInfo) {
         <div class="book-container">
             <div class="book-cover">
                 <h1>📖 ${escapeHtml(card.title) || "كتاب الذكريات"}</h1>
-                <p class="book-subtitle">${bookPages.length} صفحة من ذكرياتنا</p>
+                <p class="book-subtitle">${bookPages.length} صفحة</p>
             </div>
-
             <div class="book-pages" id="bookPages">
                 ${bookPages.map((evt, i) => renderBookPage(evt, i)).join("")}
             </div>
-
             <div class="book-controls">
-                <button class="book-nav-btn" id="bookPrev" disabled>
-                    <i class="fa-solid fa-chevron-right"></i> السابق
-                </button>
-                <div class="book-page-indicator">
-                    صفحة <strong id="currentPageNum">1</strong> من ${bookPages.length}
-                </div>
-                <button class="book-nav-btn" id="bookNext" ${bookPages.length <= 1 ? "disabled" : ""}>
-                    التالي <i class="fa-solid fa-chevron-left"></i>
-                </button>
+                <button class="book-nav-btn" id="bookPrev" disabled><i class="fa-solid fa-chevron-right"></i> السابق</button>
+                <div class="book-page-indicator">صفحة <strong id="currentPageNum">1</strong> من ${bookPages.length}</div>
+                <button class="book-nav-btn" id="bookNext" ${bookPages.length <= 1 ? "disabled" : ""}>التالي <i class="fa-solid fa-chevron-left"></i></button>
             </div>
-
             <div class="book-dots" id="bookDots">
-                ${bookPages.map((_, i) =>
-                    `<button class="book-dot ${i === 0 ? "active" : ""}" data-page="${i}"></button>`
-                ).join("")}
+                ${bookPages.map((_, i) => `<button class="book-dot ${i === 0 ? "active" : ""}" data-page="${i}"></button>`).join("")}
             </div>
         </div>
     `;
@@ -487,22 +436,9 @@ function renderBookPage(evt, index) {
                 <h2 class="page-title">${escapeHtml(evt.title) || "ذكرى"}</h2>
                 ${evt.date ? `<p class="page-date"><i class="fa-solid fa-calendar"></i> ${formatDate(evt.date)}</p>` : ""}
             </div>
-
             ${evt.message ? `<p class="page-message">${escapeHtml(evt.message)}</p>` : ""}
-
-            ${images.length > 0 ? `
-                <div class="page-gallery">
-                    ${images.map(url => `<img src="${url}" loading="lazy">`).join("")}
-                </div>
-            ` : ""}
-
-            ${evt.videoUrl ? `
-                <div class="page-video">
-                    <video controls playsinline preload="metadata">
-                        <source src="${evt.videoUrl}" type="video/mp4">
-                    </video>
-                </div>
-            ` : ""}
+            ${images.length > 0 ? `<div class="page-gallery">${images.map(url => `<img src="${url}" loading="lazy">`).join("")}</div>` : ""}
+            ${evt.videoUrl ? `<div class="page-video"><video controls playsinline preload="metadata"><source src="${evt.videoUrl}" type="video/mp4"></video></div>` : ""}
         </div>
     `;
 }
@@ -510,10 +446,8 @@ function renderBookPage(evt, index) {
 function setupBookNavigation() {
     const prevBtn = document.getElementById("bookPrev");
     const nextBtn = document.getElementById("bookNext");
-
     prevBtn?.addEventListener("click", () => showBookPage(currentBookPage - 1));
     nextBtn?.addEventListener("click", () => showBookPage(currentBookPage + 1));
-
     document.querySelectorAll(".book-dot").forEach(dot => {
         dot.addEventListener("click", () => showBookPage(parseInt(dot.dataset.page)));
     });
@@ -542,7 +476,6 @@ function showBookPage(pageNum) {
     const pageImages = bookPages[pageNum].images || [];
     currentImages = pageImages;
     setupGallery();
-
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -555,24 +488,17 @@ function toArray(value) {
     return [];
 }
 
-function cleanInstagram(username) {
-    return String(username).replace(/^@/, "").replace(/^.*instagram\.com\//, "").replace(/\/$/, "").trim();
+function cleanInstagram(u) {
+    return String(u).replace(/^@/, "").replace(/^.*instagram\.com\//, "").replace(/\/$/, "").trim();
 }
-
-function cleanPhone(phone) {
-    return String(phone).replace(/[^\d+]/g, "");
+function cleanPhone(p) { return String(p).replace(/[^\d+]/g, ""); }
+function cleanWebsite(u) {
+    let s = String(u).trim();
+    if (!s) return "";
+    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+    return s;
 }
-
-function cleanWebsite(url) {
-    let u = String(url).trim();
-    if (!u) return "";
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    return u;
-}
-
-function displayWebsite(url) {
-    return String(url).replace(/^https?:\/\//i, "").replace(/\/$/, "");
-}
+function displayWebsite(u) { return String(u).replace(/^https?:\/\//i, "").replace(/\/$/, ""); }
 
 async function renderBusinessCard(card, typeInfo) {
     const phones = toArray(card.phone);
@@ -582,36 +508,12 @@ async function renderBusinessCard(card, typeInfo) {
     const linkedin = toArray(card.linkedin);
     const emails = toArray(card.email);
 
-    // 🔐 فك تشفير الشعار (يدعم logo و logoUrl)
-    let logoUrl = null;
-    
-    // الحالة 1: logo كائن مشفر (جديد)
-    if (card.logo && typeof card.logo === "object" && card.logo.encrypted && card.logo.url) {
-        if (currentEncryptionKey) {
-            try {
-                const res = await fetch(card.logo.url);
-                const encryptedBlob = await res.blob();
-                const iv = base64UrlToBytes(card.logo.iv);
-                const decryptedBlob = await decryptFile(encryptedBlob, iv, currentEncryptionKey);
-                logoUrl = URL.createObjectURL(decryptedBlob);
-            } catch (e) {
-                console.error("فشل فك تشفير الشعار:", e);
-            }
-        }
-    }
-    // الحالة 2: logoUrl نص قديم (غير مشفر)
-    else if (card.logoUrl && typeof card.logoUrl === "string") {
-        logoUrl = card.logoUrl;
-    }
-    // الحالة 3: logo نص (احتياطي)
-    else if (card.logo && typeof card.logo === "string") {
-        logoUrl = card.logo;
-    }
+    // الشعار (غير مشفر — بطاقة عمل عامة)
+    const logoUrl = card.logoUrl || "";
 
     const contacts = [];
     phones.forEach(num => {
-        const clean = cleanPhone(num);
-        contacts.push(`<a href="tel:${clean}" class="biz-contact-btn"><i class="fa-solid fa-phone"></i> ${escapeHtml(num)}</a>`);
+        contacts.push(`<a href="tel:${cleanPhone(num)}" class="biz-contact-btn"><i class="fa-solid fa-phone"></i> ${escapeHtml(num)}</a>`);
     });
     emails.forEach(mail => {
         contacts.push(`<a href="mailto:${mail}" class="biz-contact-btn"><i class="fa-solid fa-envelope"></i> راسلني</a>`);
@@ -621,8 +523,7 @@ async function renderBusinessCard(card, typeInfo) {
         contacts.push(`<a href="https://wa.me/${waNum}" target="_blank" class="biz-contact-btn full-width"><i class="fa-brands fa-whatsapp"></i> واتساب: ${escapeHtml(num)}</a>`);
     });
     websites.forEach(site => {
-        const url = cleanWebsite(site);
-        contacts.push(`<a href="${url}" target="_blank" class="biz-contact-btn full-width"><i class="fa-solid fa-globe"></i> ${escapeHtml(displayWebsite(site))}</a>`);
+        contacts.push(`<a href="${cleanWebsite(site)}" target="_blank" class="biz-contact-btn full-width"><i class="fa-solid fa-globe"></i> ${escapeHtml(displayWebsite(site))}</a>`);
     });
     if (card.address) {
         contacts.push(`<a href="https://maps.google.com/?q=${encodeURIComponent(card.address)}" target="_blank" class="biz-contact-btn full-width"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.address)}</a>`);
@@ -630,28 +531,21 @@ async function renderBusinessCard(card, typeInfo) {
 
     const socials = [];
     instagrams.forEach(acc => {
-        const clean = cleanInstagram(acc);
-        socials.push(`<a href="https://instagram.com/${clean}" target="_blank" class="biz-social-btn instagram" title="@${clean}"><i class="fa-brands fa-instagram"></i></a>`);
+        socials.push(`<a href="https://instagram.com/${cleanInstagram(acc)}" target="_blank" class="biz-social-btn instagram"><i class="fa-brands fa-instagram"></i></a>`);
     });
     facebook.forEach(fb => {
-        const clean = String(fb).replace(/^https?:\/\//i, "");
-        socials.push(`<a href="https://${clean}" target="_blank" class="biz-social-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`);
+        socials.push(`<a href="https://${String(fb).replace(/^https?:\/\//i, "")}" target="_blank" class="biz-social-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`);
     });
     linkedin.forEach(li => {
-        const clean = String(li).replace(/^https?:\/\//i, "");
-        socials.push(`<a href="https://${clean}" target="_blank" class="biz-social-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`);
+        socials.push(`<a href="https://${String(li).replace(/^https?:\/\//i, "")}" target="_blank" class="biz-social-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`);
     });
     websites.forEach(site => {
-        const url = cleanWebsite(site);
-        socials.push(`<a href="${url}" target="_blank" class="biz-social-btn website"><i class="fa-solid fa-globe"></i></a>`);
+        socials.push(`<a href="${cleanWebsite(site)}" target="_blank" class="biz-social-btn website"><i class="fa-solid fa-globe"></i></a>`);
     });
 
     viewContainer.innerHTML = `
         <div class="biz-card">
-            ${logoUrl
-                ? `<img src="${logoUrl}" class="biz-logo" alt="Logo">`
-                : `<div class="biz-logo-placeholder"><i class="fa-solid fa-user"></i></div>`
-            }
+            ${logoUrl ? `<img src="${logoUrl}" class="biz-logo" alt="Logo">` : `<div class="biz-logo-placeholder"><i class="fa-solid fa-user"></i></div>`}
             <h1 class="biz-name">${escapeHtml(card.name) || "بطاقة عمل"}</h1>
             ${card.jobTitle ? `<p class="biz-job">${escapeHtml(card.jobTitle)}</p>` : ""}
             ${card.company ? `<p class="biz-company">${escapeHtml(card.company)}</p>` : ""}
@@ -659,6 +553,87 @@ async function renderBusinessCard(card, typeInfo) {
             ${card.services ? `<div class="biz-section"><div class="biz-section-title"><i class="fa-solid fa-briefcase"></i> الخدمات</div><div class="biz-section-content">${escapeHtml(card.services)}</div></div>` : ""}
             ${contacts.length > 0 ? `<div class="biz-contacts">${contacts.join("")}</div>` : ""}
             ${socials.length > 0 ? `<div class="biz-socials">${socials.join("")}</div>` : ""}
+        </div>
+    `;
+}
+
+// ============================================================
+// 🐾 بطاقة الحيوانات
+// ============================================================
+async function renderPetCard(card, typeInfo) {
+    const petPhoto = card.petPhoto || "";
+
+    const typeEmoji = {
+        "قط": "🐱", "كلب": "🐶", "طير": "🐦", "أرنب": "🐰",
+        "سمكة": "🐠", "سلحفاة": "🐢", "هامستر": "🐹", "آخر": "🐾"
+    };
+
+    const petEmoji = typeEmoji[card.petType] || "🐾";
+
+    // بناء شبكة المعلومات
+    const infoItems = [];
+    if (card.petBreed) infoItems.push({ label: "🧬 السلالة", value: card.petBreed });
+    if (card.petAge) infoItems.push({ label: "🎂 العمر", value: card.petAge });
+    if (card.petWeight) infoItems.push({ label: "⚖️ الوزن", value: card.petWeight });
+    if (card.petColor) infoItems.push({ label: "🎨 اللون", value: card.petColor });
+
+    const infoGridHtml = infoItems.length > 0 ? `
+        <div class="pet-info-grid">
+            ${infoItems.map(item => `
+                <div class="pet-info-item">
+                    <div class="pet-info-label">${item.label}</div>
+                    <div class="pet-info-value">${escapeHtml(item.value)}</div>
+                </div>
+            `).join("")}
+        </div>
+    ` : "";
+
+    // ملاحظات
+    const notesHtml = card.petNotes ? `
+        <div class="pet-notes-box">
+            <div class="title"><i class="fa-solid fa-triangle-exclamation"></i> ملاحظات مهمة</div>
+            <div class="content">${escapeHtml(card.petNotes)}</div>
+        </div>
+    ` : "";
+
+    // آخر تطعيم
+    const vaccinationHtml = card.petVaccinations ? `
+        <div class="pet-info-item" style="margin-top: 15px;">
+            <div class="pet-info-label">💉 آخر تطعيم</div>
+            <div class="pet-info-value">${formatDate(card.petVaccinations)}</div>
+        </div>
+    ` : "";
+
+    // معلومات التواصل
+    const phoneClean = cleanPhone(card.petOwnerPhone || "");
+    const contactHtml = card.petOwnerPhone ? `
+        <div class="pet-contact-box">
+            <div class="title">📞 إذا وجدت هذا الحيوان، اتصل بمالكه</div>
+            ${card.petOwnerName ? `<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px;">${escapeHtml(card.petOwnerName)}</div>` : ""}
+            <a href="tel:${phoneClean}" class="pet-contact-btn">
+                <i class="fa-solid fa-phone"></i> ${escapeHtml(card.petOwnerPhone)}
+            </a>
+            ${card.petAddress ? `
+                <a href="https://maps.google.com/?q=${encodeURIComponent(card.petAddress)}" target="_blank" class="pet-contact-btn" style="background: #0f172a; color: #fff;">
+                    <i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.petAddress)}
+                </a>
+            ` : ""}
+        </div>
+    ` : "";
+
+    viewContainer.innerHTML = `
+        <div class="pet-card">
+            ${petPhoto
+                ? `<img src="${petPhoto}" class="pet-photo" alt="${escapeHtml(card.petName)}">`
+                : `<div class="pet-photo-placeholder">${petEmoji}</div>`
+            }
+            <h1 class="pet-name">${escapeHtml(card.petName) || "حيوان أليف"}</h1>
+            <p class="pet-type">${petEmoji} ${escapeHtml(card.petType) || "حيوان"}</p>
+
+            ${infoGridHtml}
+            ${vaccinationHtml}
+            ${notesHtml}
+            ${contactHtml}
         </div>
     `;
 }
@@ -677,71 +652,54 @@ function setupAlbum() {
     const nextBtn = document.getElementById("albumNext");
 
     let currentSlide = 0;
-    let touchStartX = 0;
-    let touchEndX = 0;
-    let isDragging = false;
-
+    let touchStartX = 0, touchEndX = 0, isDragging = false;
     const totalSlides = slides.length;
     if (totalSlides === 0) return;
 
     function goToSlide(index) {
         if (index < 0) index = 0;
         if (index >= totalSlides) index = totalSlides - 1;
-
         slides.forEach((s, i) => s.classList.toggle("active", i === index));
         dots.forEach((d, i) => d.classList.toggle("active", i === index));
         if (counter) counter.textContent = `${index + 1} / ${totalSlides}`;
         if (prevBtn) prevBtn.disabled = index === 0;
         if (nextBtn) nextBtn.disabled = index === totalSlides - 1;
-
         currentSlide = index;
     }
 
     prevBtn?.addEventListener("click", () => goToSlide(currentSlide - 1));
     nextBtn?.addEventListener("click", () => goToSlide(currentSlide + 1));
-
-    dots.forEach((dot) => {
-        dot.addEventListener("click", () => goToSlide(parseInt(dot.dataset.dot)));
-    });
+    dots.forEach(dot => dot.addEventListener("click", () => goToSlide(parseInt(dot.dataset.dot))));
 
     viewport.addEventListener("touchstart", (e) => {
         touchStartX = e.changedTouches[0].screenX;
         isDragging = true;
     }, { passive: true });
-
     viewport.addEventListener("touchmove", (e) => {
         if (!isDragging) return;
         touchEndX = e.changedTouches[0].screenX;
     }, { passive: true });
-
     viewport.addEventListener("touchend", () => {
         if (!isDragging) return;
-        const distance = touchStartX - touchEndX;
-        if (Math.abs(distance) >= 50) {
-            if (distance > 50) goToSlide(currentSlide + 1);
+        const d = touchStartX - touchEndX;
+        if (Math.abs(d) >= 50) {
+            if (d > 50) goToSlide(currentSlide + 1);
             else goToSlide(currentSlide - 1);
         }
         isDragging = false;
     });
 
-    let mouseStartX = 0;
-    let isMouseDown = false;
-
-    viewport.addEventListener("mousedown", (e) => {
-        mouseStartX = e.screenX;
-        isMouseDown = true;
-    });
-
+    let mouseStartX = 0, isMouseDown = false;
+    viewport.addEventListener("mousedown", (e) => { mouseStartX = e.screenX; isMouseDown = true; });
     viewport.addEventListener("mouseup", (e) => {
         if (!isMouseDown) return;
-        const distance = mouseStartX - e.screenX;
-        if (Math.abs(distance) >= 50) {
-            if (distance > 0) goToSlide(currentSlide + 1);
+        const d = mouseStartX - e.screenX;
+        if (Math.abs(d) >= 50) {
+            if (d > 0) goToSlide(currentSlide + 1);
             else goToSlide(currentSlide - 1);
         }
         isMouseDown = false;
     });
-
     viewport.addEventListener("mouseleave", () => { isMouseDown = false; });
 
     document.addEventListener("keydown", (e) => {
