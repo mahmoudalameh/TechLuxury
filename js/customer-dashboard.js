@@ -39,7 +39,7 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
         
-        // ✅ اسم فريد لكل ملف (يمنع الاستبدال)
+        // ✅ اسم فريد لكل ملف (يمنع الاستبدال في Cloudinary)
         const uniqueFilename = `enc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.enc`;
         formData.append("file", encryptedBlob, uniqueFilename);
         formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -61,7 +61,7 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
                 try { 
                     const response = JSON.parse(xhr.responseText);
                     console.log("✅ تم رفع الملف:", response.secure_url);
-                    console.log("📦 حجم الملف المرفوع:", response.bytes, "بايت");
+                    console.log("📦 الحجم المرفوع:", response.bytes, "بايت =", (response.bytes / 1024).toFixed(2), "KB");
                     resolve(response.secure_url);
                 }
                 catch { reject(new Error("فشل تحليل الاستجابة")); }
