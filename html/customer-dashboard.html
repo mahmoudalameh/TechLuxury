@@ -714,6 +714,37 @@
             </form>
         </div>
     </div>
+    <!-- ===== Modal كلمة المرور ===== -->
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal-card" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 id="passwordModalTitle"><i class="fa-solid fa-lock"></i> كلمة المرور</h3>
+            <button class="modal-close" id="btnClosePasswordModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p id="passwordModalDesc" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6;"></p>
+
+        <div class="form-group">
+            <label>🔐 كلمة المرور</label>
+            <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور..." autocomplete="new-password">
+        </div>
+
+        <div class="form-group" id="confirmPasswordGroup" style="display:none;">
+            <label>🔁 تأكيد كلمة المرور</label>
+            <input type="password" id="confirmPasswordInput" placeholder="أعد إدخال كلمة المرور..." autocomplete="new-password">
+        </div>
+
+        <p class="error-msg" id="passwordError" style="display:none; color:#f87171; font-size:0.85rem; margin-top:10px;"></p>
+
+        <div style="background: rgba(226, 183, 20, 0.08); border: 1px solid rgba(226, 183, 20, 0.3); border-radius: 8px; padding: 12px; margin-top: 15px; font-size: 0.8rem; color: #fbbf24; line-height: 1.6;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <strong>مهم:</strong> احفظ كلمة المرور جيداً، فلا يمكن استعادتها. ستحتاجها لفتح الكرت وعرض الرسائل والصور.
+        </div>
+
+        <button type="button" class="btn-save" id="btnPasswordConfirm" style="margin-top: 20px;">
+            <i class="fa-solid fa-check"></i> تأكيد
+        </button>
+    </div>
+</div>
 
     <script type="module" src="../js/customer-dashboard.js"></script>
 
