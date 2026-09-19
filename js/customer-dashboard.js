@@ -38,7 +38,10 @@ const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
-        formData.append("file", encryptedBlob, "encrypted.enc");
+        
+        // ✅ اسم فريد لكل ملف (يمنع الاستبدال)
+        const uniqueFilename = `enc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.enc`;
+        formData.append("file", encryptedBlob, uniqueFilename);
         formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
         formData.append("folder", "techluxury/encrypted");
         
@@ -55,7 +58,12 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
 
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                try { resolve(JSON.parse(xhr.responseText).secure_url); }
+                try { 
+                    const response = JSON.parse(xhr.responseText);
+                    console.log("✅ تم رفع الملف:", response.secure_url);
+                    console.log("📦 حجم الملف المرفوع:", response.bytes, "بايت");
+                    resolve(response.secure_url);
+                }
                 catch { reject(new Error("فشل تحليل الاستجابة")); }
             } else {
                 try {
