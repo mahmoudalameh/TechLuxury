@@ -105,6 +105,9 @@ function initializeAdminPanel() {
                     title: "",
                     message: "",
                     publicEnabled: true,
+                    protected: false,
+                    salt: null,
+                    encryptionVersion: null,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp()
                 });
@@ -139,7 +142,7 @@ function initializeAdminPanel() {
         let total = 0, available = 0, active = 0, disabled = 0;
 
         if (snapshot.empty) {
-            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">لا يوجد كروت حتى الآن. اضغط زر الإنشاء أعلاه.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">لا يوجد كروت حتى الآن. اضغط زر الإنشاء أعلاه.</td></tr>`;
             updateStats(0, 0, 0, 0);
             return;
         }
@@ -155,22 +158,51 @@ function initializeAdminPanel() {
             // ✅ رابط NFC الصحيح
             const nfcUrl = `${window.location.origin}${window.location.pathname.replace(/\/html\/.*$/, "")}/html/customer-view.html?id=${card.cardId}`;
 
+            // ✅ عرض نوع الكرت
+            const typeLabels = {
+                "gift": "🎁 هدية",
+                "memory_book": "📖 كتاب ذكريات",
+                "business_card": "💼 بطاقة عمل",
+                "pet_card": "🐾 بطاقة حيوانات"
+            };
+            const typeLabel = card.type ? (typeLabels[card.type] || card.type) : "— غير محدد —";
+
+            // ✅ عرض حالة القفل
+            const lockStatus = card.salt && card.protected
+                ? `<span style="color:#22c55e; font-size:0.85rem;">🔒 محمي</span>`
+                : `<span style="color:#f59e0b; font-size:0.85rem;">🌐 عام</span>`;
+
+            // ✅ حالة الربط
+            const ownerStatus = card.ownerId
+                ? `<span style="color:#10b981; font-size:0.8rem;">مربوط</span>`
+                : `<span style="color:#f59e0b; font-size:0.8rem;">غير مربوط</span>`;
+
             const row = document.createElement("tr");
             row.innerHTML = `
-                <td><strong>${card.cardId}</strong></td>
+                <td>
+                    <strong>${card.cardId}</strong><br>
+                    <small style="color:#94a3b8;">${ownerStatus}</small>
+                </td>
+                <td>
+                    <div style="font-size:0.85rem; margin-bottom:5px;">${typeLabel}</div>
+                    ${lockStatus}
+                </td>
                 <td>
                     <select class="status-select" data-id="${card.cardId}">
-                        <option value="available" ${card.status === 'available' ? 'selected' : ''}>متاح (Available)</option>
-                        <option value="active" ${card.status === 'active' ? 'selected' : ''}>مفعل (Active)</option>
-                        <option value="disabled" ${card.status === 'disabled' ? 'selected' : ''}>معطل (Disabled)</option>
+                        <option value="available" ${card.status === 'available' ? 'selected' : ''}>متاح</option>
+                        <option value="active" ${card.status === 'active' ? 'selected' : ''}>مفعل</option>
+                        <option value="disabled" ${card.status === 'disabled' ? 'selected' : ''}>معطل</option>
                     </select>
                 </td>
                 <td>${card.createdAt ? new Date(card.createdAt.toDate()).toLocaleDateString('ar-EG') : 'الآن'}</td>
-                <td style="font-size: 0.85rem; color: #94a3b8;">${nfcUrl}</td>
+                <td style="font-size: 0.75rem; color: #94a3b8; max-width:200px; word-break:break-all;">${nfcUrl}</td>
                 <td>
-                    <div class="action-btns">
+                    <div class="action-btns" style="flex-direction:column; gap:5px;">
                         <button class="btn-sm btn-copy" data-url="${nfcUrl}">
                             <i class="fa-regular fa-copy"></i> نسخ الرابط
+                        </button>
+                        <button class="btn-sm btn-reset-type" data-id="${card.cardId}">
+                            <i class="fa-solid fa-eraser"></i> تصفير الكرت
                         </button>
                     </div>
                 </td>
@@ -190,6 +222,14 @@ function initializeAdminPanel() {
                     btn.innerHTML = '<i class="fa-solid fa-check"></i> تم النسخ!';
                     setTimeout(() => btn.innerHTML = originalHTML, 1500);
                 });
+            });
+        });
+
+        // ✅ ربط أزرار "تصفير النوع"
+        document.querySelectorAll(".btn-reset-type").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const cardId = btn.dataset.id;
+                await resetCardType(cardId);
             });
         });
 
@@ -226,7 +266,82 @@ function initializeAdminPanel() {
     }
 
     // ============================================================
-    // 4️⃣ تحديث الإحصائيات
+    // 4️⃣ ✅ تصفير نوع الكرت (حذف كل البيانات)
+    // ============================================================
+    async function resetCardType(cardId) {
+        // تحذير أول
+        if (!confirm(`⚠️ تحذير!\n\nسيتم حذف كل بيانات الكرت "${cardId}":\n\n• النوع المختار\n• العنوان والرسائل\n• الصور والفيديوهات\n• معلومات البطاقة\n• كلمة المرور\n\nهل أنت متأكد؟`)) return;
+
+        // تأكيد نهائي
+        if (!confirm("⚠️ تأكيد نهائي!\n\nهذا الإجراء لا يمكن التراجع عنه.\n\nهل أنت متأكد 100%؟")) return;
+
+        try {
+            const cardRef = doc(db, "cards", cardId);
+            
+            await updateDoc(cardRef, {
+                // 🗑️ حذف بيانات النوع الأساسية
+                type: null,
+                protected: false,
+                title: "",
+                message: "",
+                images: [],
+                video: "",
+                events: [],
+
+                // 🗑️ حذف بيانات بطاقة العمل
+                name: "",
+                jobTitle: "",
+                company: "",
+                bio: "",
+                services: "",
+                email: "",
+                address: "",
+                phone: [],
+                website: [],
+                instagram: [],
+                facebook: "",
+                linkedin: "",
+                logoUrl: "",
+                logo: "",
+
+                // 🗑️ حذف بيانات بطاقة الحيوانات
+                petName: "",
+                petType: "",
+                petBreed: "",
+                petAge: "",
+                petWeight: "",
+                petColor: "",
+                petNotes: "",
+                petVaccinations: "",
+                petOwnerName: "",
+                petOwnerPhone: "",
+                petAddress: "",
+                petPhoto: "",
+
+                // 🗑️ حذف الموسيقى
+                bgMusicUrl: "",
+
+                // 🔐 حذف كلمة المرور والتشفير
+                salt: null,
+                encryptionVersion: null,
+
+                updatedAt: serverTimestamp()
+            });
+
+            alert(`✅ تم تصفير الكرت "${cardId}" بنجاح!\n\nيمكن للعميل الآن اختيار النوع من جديد وإضافة بيانات جديدة.`);
+        } catch (error) {
+            console.error("خطأ في تصفير الكرت:", error);
+            
+            if (error.code === "permission-denied") {
+                alert("❌ ليس لديك صلاحية تعديل هذا الكرت.");
+            } else {
+                alert("فشل تصفير الكرت: " + error.message);
+            }
+        }
+    }
+
+    // ============================================================
+    // 5️⃣ تحديث الإحصائيات
     // ============================================================
     function updateStats(total, available, active, disabled) {
         const totalEl = document.getElementById("totalCards");
