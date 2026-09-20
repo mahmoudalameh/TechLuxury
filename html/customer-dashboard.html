@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
 
     <style>
         :root {
@@ -199,6 +200,7 @@
         .form-group input[type="email"],
         .form-group input[type="url"],
         .form-group input[type="number"],
+        .form-group input[type="password"],
         .form-group select,
         .form-group textarea {
             width: 100%;
@@ -325,6 +327,42 @@
             margin: 20px 0 12px;
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border-color);
+        }
+
+        /* ✅ قسم الحماية */
+        .protection-box {
+            background: linear-gradient(135deg, rgba(226, 183, 20, 0.08), rgba(226, 183, 20, 0.02));
+            border: 1px solid rgba(226, 183, 20, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .protection-box .section-title {
+            margin-top: 0;
+            color: var(--accent-gold);
+            border-bottom: 1px solid rgba(226, 183, 20, 0.2);
+        }
+
+        .protection-hint {
+            background: rgba(59, 130, 246, 0.1);
+            border-right: 3px solid #3b82f6;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #93c5fd;
+            margin-bottom: 15px;
+        }
+
+        .warning-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            color: #fca5a5;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            line-height: 1.5;
         }
 
         .current-images-container {
@@ -577,6 +615,43 @@
                 <!-- 2) حقول الكرت -->
                 <div id="stepCardFields" class="hidden">
 
+                    <!-- ✅ قسم الحماية (يظهر فقط للأنواع المحمية) -->
+                    <div id="protectionSection" class="protection-box hidden">
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-shield-halved"></i> حماية الكرت
+                        </h3>
+                        <div class="protection-hint">
+                            <i class="fa-solid fa-circle-info"></i>
+                            هذا الكرت محمي — يجب إدخال سؤال وإجابة سرية. سيُعرض السؤال للزائر عند فتح الكرت.
+                        </div>
+
+                        <div class="form-group">
+                            <label>❓ السؤال السري *</label>
+                            <input type="text" id="securityQuestionInput"
+                                   placeholder="مثال: ما اسم أول حيوان أليف لك؟"
+                                   maxlength="200">
+                        </div>
+
+                        <div class="form-group">
+                            <label>🔑 الإجابة السرية *</label>
+                            <input type="text" id="securityAnswerInput"
+                                   placeholder="أدخل الإجابة..."
+                                   autocomplete="new-password">
+                        </div>
+
+                        <div class="form-group">
+                            <label>🔁 تأكيد الإجابة *</label>
+                            <input type="text" id="securityAnswerConfirm"
+                                   placeholder="أعد إدخال الإجابة..."
+                                   autocomplete="new-password">
+                        </div>
+
+                        <div class="warning-box">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <strong>مهم:</strong> احفظ السؤال والإجابة جيداً — لا يمكن استعادتهما إذا نسيتهما.
+                        </div>
+                    </div>
+
                     <!-- نوع 1: كرت هدية -->
                     <div id="giftFields" class="hidden">
                         <div class="form-group">
@@ -712,11 +787,11 @@
                         </div>
                     </div>
 
-                    <!-- نوع 4: بطاقة حيوانات 🐾 (جديد) -->
+                    <!-- نوع 4: بطاقة حيوانات -->
                     <div id="petFields" class="hidden">
                         <div class="hint">
                             <i class="fa-solid fa-paw"></i>
-                            بطاقة الحيوانات <strong>عامة</strong> — يمكن لأي شخص يفتح الرابط رؤيتها بدون كلمة مرور. مفيدة إذا ضاع حيوانك الأليف.
+                            بطاقة الحيوانات <strong>عامة</strong> — يمكن لأي شخص يفتح الرابط رؤيتها بدون كلمة مرور.
                         </div>
 
                         <div class="form-group">
@@ -761,7 +836,7 @@
 
                         <div class="form-group">
                             <label>📝 ملاحظات (حساسية، أدوية، طعام خاص)</label>
-                            <textarea id="petNotes" rows="3" placeholder="مثال: حساسية من الدجاج، يحتاج دواء يومي..."></textarea>
+                            <textarea id="petNotes" rows="3" placeholder="مثال: حساسية من الدجاج..."></textarea>
                         </div>
 
                         <div class="form-group">
@@ -816,34 +891,36 @@
         </div>
     </div>
 
-    <!-- Modal كلمة المرور -->
-    <div class="modal-overlay" id="passwordModal">
+    <!-- Modal فك التشفير (عند فتح كرت محمي للتعديل) -->
+    <div class="modal-overlay" id="unlockModal">
         <div class="modal-card" style="max-width: 480px;">
             <div class="modal-header">
-                <h3 id="passwordModalTitle"><i class="fa-solid fa-lock"></i> كلمة المرور</h3>
-                <button class="modal-close" id="btnClosePasswordModal"><i class="fa-solid fa-xmark"></i></button>
+                <h3><i class="fa-solid fa-shield-halved"></i> فتح الكرت المحمي</h3>
+                <button class="modal-close" id="btnCloseUnlockModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p id="passwordModalDesc" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6;"></p>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6;">
+                أجب على السؤال التالي لفتح الكرت وتعديل محتواه.
+            </p>
+
+            <div id="unlockQuestionDisplay" style="background:#0f172a;border:1px solid #2e374a;border-radius:10px;padding:15px;margin-bottom:20px;">
+                <div style="color:#94a3b8;font-size:0.75rem;margin-bottom:6px;">
+                    <i class="fa-solid fa-question-circle"></i> السؤال:
+                </div>
+                <div id="unlockQuestionText" style="color:#e2b714;font-weight:600;font-size:1rem;line-height:1.5;">
+                    —
+                </div>
+            </div>
 
             <div class="form-group">
-                <label>🔐 كلمة المرور</label>
-                <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور..." autocomplete="new-password">
+                <label>🔑 الإجابة السرية</label>
+                <input type="text" id="unlockAnswerInput" placeholder="أدخل الإجابة..." autocomplete="off">
             </div>
 
-            <div class="form-group" id="confirmPasswordGroup" style="display:none;">
-                <label>🔁 تأكيد كلمة المرور</label>
-                <input type="password" id="confirmPasswordInput" placeholder="أعد إدخال كلمة المرور..." autocomplete="new-password">
-            </div>
+            <p class="error-msg" id="unlockError" style="display:none; color:#f87171; font-size:0.85rem; margin-top:10px;"></p>
 
-            <p class="error-msg" id="passwordError" style="display:none; color:#f87171; font-size:0.85rem; margin-top:10px;"></p>
-
-            <div style="background: rgba(226, 183, 20, 0.08); border: 1px solid rgba(226, 183, 20, 0.3); border-radius: 8px; padding: 12px; margin-top: 15px; font-size: 0.8rem; color: #fbbf24; line-height: 1.6;">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <strong>مهم:</strong> احفظ كلمة المرور جيداً، فلا يمكن استعادتها.
-            </div>
-
-            <button type="button" class="btn-save" id="btnPasswordConfirm" style="margin-top: 20px;">
-                <i class="fa-solid fa-check"></i> تأكيد
+            <button type="button" class="btn-save" id="btnUnlockConfirm" style="margin-top: 20px;">
+                <i class="fa-solid fa-unlock"></i> فتح الكرت
             </button>
         </div>
     </div>
