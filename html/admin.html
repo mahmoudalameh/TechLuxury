@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة المطور | إدارة كروت ذكرى</title>
-    <!-- خط تجوال من Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <!-- مكتبة الأيقونات Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
+
     <style>
         :root {
             --bg-dark: #090d16;
@@ -24,8 +23,6 @@
             --success: #10b981;
         }
 
-           .btn-reset-type { background: #dc2626; color: #fff; }
-        .btn-reset-type:hover { background: #b91c1c; }
         * {
             box-sizing: border-box;
             margin: 0;
@@ -40,7 +37,7 @@
         }
 
         .container {
-            max-width: 1100px;
+            max-width: 1300px;
             margin: 0 auto;
         }
 
@@ -51,36 +48,15 @@
             padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
             margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         h1 {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             color: var(--accent-gold);
         }
 
-                /* تحسين عرض العمود الأخير */
-        .action-btns {
-            display: flex;
-            gap: 6px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: right;
-            font-size: 0.9rem;
-        }
-
-        th, td {
-            padding: 12px 10px;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: middle;
-        }
-
-        td select.status-select {
-            font-size: 0.8rem;
-            padding: 4px 6px;
-        }
         .btn-create {
             background: linear-gradient(135deg, #e2b714, #d97706);
             color: #000;
@@ -126,6 +102,87 @@
             font-weight: 700;
         }
 
+        /* ✅ شريط البحث */
+        .search-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .search-section h3 {
+            color: var(--accent-gold);
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-bar input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 16px;
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--accent-gold);
+        }
+
+        .search-bar input::placeholder {
+            color: #64748b;
+        }
+
+        .search-bar .filter-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: #0f172a;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+
+        .filter-btn.active {
+            background: rgba(226, 183, 20, 0.15);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+
+        .search-results-info {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
         /* Table Section */
         .table-container {
             background: var(--card-bg);
@@ -138,21 +195,29 @@
             width: 100%;
             border-collapse: collapse;
             text-align: right;
+            font-size: 0.9rem;
         }
 
         th, td {
-            padding: 16px;
+            padding: 12px 10px;
             border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
         }
 
         th {
             background-color: rgba(255, 255, 255, 0.03);
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
         }
 
         tr:hover {
             background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        tr.highlighted {
+            background-color: rgba(226, 183, 20, 0.08);
+            border-right: 3px solid var(--accent-gold);
         }
 
         /* Status Badge */
@@ -169,20 +234,25 @@
 
         .action-btns {
             display: flex;
-            gap: 8px;
+            gap: 6px;
+            flex-direction: column;
         }
 
         .btn-sm {
-            padding: 6px 12px;
-            font-size: 0.8rem;
+            padding: 6px 10px;
+            font-size: 0.78rem;
             border-radius: 6px;
             border: none;
             cursor: pointer;
             transition: 0.2s;
+            white-space: nowrap;
         }
 
         .btn-copy { background: #334155; color: #fff; }
         .btn-copy:hover { background: #475569; }
+
+        .btn-reset-type { background: #dc2626; color: #fff; }
+        .btn-reset-type:hover { background: #b91c1c; }
 
         select.status-select {
             background: #0f172a;
@@ -191,6 +261,45 @@
             padding: 4px 8px;
             border-radius: 6px;
             cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* اسم العميل */
+        .customer-name {
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        .customer-email {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            word-break: break-all;
+        }
+
+        .no-name {
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.85rem;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--border-color);
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.3rem; }
+            .search-bar input { min-width: 100%; }
         }
     </style>
 </head>
@@ -198,7 +307,7 @@
 
     <div class="container">
         <header>
-            <h1><i class="fa-solid fa-code"></i> لوحة تحكم المطور - إدارة الكروت</h1>
+            <h1><i class="fa-solid fa-code"></i> لوحة تحكم المطور</h1>
             <button id="btnCreateCard" class="btn-create">
                 <i class="fa-solid fa-plus"></i> إنشاء كرت NFC جديد
             </button>
@@ -211,7 +320,7 @@
                 <p id="totalCards">0</p>
             </div>
             <div class="stat-card">
-                <h3>الكروت المتاحة (جديدة)</h3>
+                <h3>الكروت المتاحة</h3>
                 <p id="availableCards" style="color: #60a5fa;">0</p>
             </div>
             <div class="stat-card">
@@ -224,28 +333,48 @@
             </div>
         </div>
 
+        <!-- ✅ شريط البحث -->
+        <div class="search-section">
+            <h3><i class="fa-solid fa-magnifying-glass"></i> البحث والتصفية</h3>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="ابحث برمز الكرت أو اسم العميل أو البريد الإلكتروني...">
+                <div class="filter-btns">
+                    <button class="filter-btn active" data-filter="all">الكل</button>
+                    <button class="filter-btn" data-filter="available">متاح</button>
+                    <button class="filter-btn" data-filter="active">مفعل</button>
+                    <button class="filter-btn" data-filter="disabled">معطل</button>
+                    <button class="filter-btn" data-filter="protected">🔒 محمي</button>
+                    <button class="filter-btn" data-filter="public">🌐 عام</button>
+                </div>
+            </div>
+            <div class="search-results-info" id="searchInfo"></div>
+        </div>
+
         <!-- جدول الكروت -->
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
-                        <th>رمز الكرت (Card ID)</th>
+                        <th>رمز الكرت</th>
+                        <th>العميل</th>
+                        <th>النوع / الحالة</th>
                         <th>الحالة (Status)</th>
                         <th>تاريخ الإنشاء</th>
-                        <th>رابط NFC الخاص بالكرت</th>
                         <th>الإجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="cardsTableBody">
                     <tr>
-                        <td colspan="5" style="text-align: center; color: var(--text-muted);">جاري تحميل الكروت...</td>
+                        <td colspan="6" class="empty-state">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            جاري تحميل الكروت...
+                        </td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- السكربتات الخاصة بـ Firebase ولطق العمليات -->
     <script type="module" src="../js/admin.js"></script>
 
 </body>
