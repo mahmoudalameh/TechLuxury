@@ -1,10 +1,19 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+    getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, limit, deleteField 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+    getAuth, onAuthStateChanged, signOut 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
 import {
+    generateSalt,
+    bytesToBase64Url,
     base64UrlToBytes,
     deriveFinalKey,
+    encryptText,
     decryptText,
-    decryptFile
+    encryptFile
 } from "./encryption.js";
 
 // ===== Firebase =====
@@ -19,113 +28,283 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ===== أنواع الكروت =====
-const CARD_TYPES = {
-    gift: { label: "كرت هدية", icon: "fa-gift", color: "#ec4899", effect: "hearts" },
-    memory_book: { label: "كتاب ذكريات", icon: "fa-book-open", color: "#e2b714", effect: null },
-    business_card: { label: "بطاقة عمل", icon: "fa-id-card", color: "#3b82f6", effect: null },
-    pet_card: { label: "بطاقة حيوانات", icon: "fa-paw", color: "#22c55e", effect: null }
-};
+// ===== Cloudinary =====
+const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
-// ===== العناصر =====
-const loadingScreen = document.getElementById("loadingScreen");
-const viewContainer = document.getElementById("viewContainer");
-const bgMusic = document.getElementById("bgMusic");
-const musicToggle = document.getElementById("musicToggle");
-const lightbox = document.getElementById("lightbox");
-const lightboxImg = document.getElementById("lightboxImg");
-const lightboxCounter = document.getElementById("lightboxCounter");
-const lightboxClose = document.getElementById("lightboxClose");
-const lightboxPrev = document.getElementById("lightboxPrev");
-const lightboxNext = document.getElementById("lightboxNext");
+function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        const uniqueFilename = `enc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.enc`;
+        formData.append("file", encryptedBlob, uniqueFilename);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        formData.append("folder", "techluxury/encrypted");
+        
+        const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`;
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
 
-let currentImages = [];
-let currentImageIndex = 0;
-let musicStarted = false;
-let currentBookPage = 0;
-let bookPages = [];
-let currentEncryptionKey = null;
+        if (onProgress) {
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+            });
+        }
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try { 
+                    const response = JSON.parse(xhr.responseText);
+                    console.log("✅ تم رفع الملف:", response.secure_url);
+                    console.log("📦 الحجم المرفوع:", response.bytes, "بايت");
+                    resolve(response.secure_url);
+                } catch { reject(new Error("فشل تحليل الاستجابة")); }
+            } else {
+                try {
+                    const err = JSON.parse(xhr.responseText);
+                    reject(new Error(err.error?.message || "فشل الرفع"));
+                } catch { reject(new Error("فشل الرفع (كود " + xhr.status + ")")); }
+            }
+        };
+        xhr.onerror = () => reject(new Error("خطأ في الاتصال بـ Cloudinary"));
+        xhr.send(formData);
+    });
+}
+
+function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        const ext = file.name.split(".").pop() || "bin";
+        const uniqueFilename = `${resourceType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+        formData.append("file", file, uniqueFilename);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        formData.append("folder", "techluxury/public");
+        
+        const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+
+        if (onProgress) {
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+            });
+        }
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try { resolve(JSON.parse(xhr.responseText).secure_url); }
+                catch { reject(new Error("فشل تحليل الاستجابة")); }
+            } else {
+                try {
+                    const err = JSON.parse(xhr.responseText);
+                    reject(new Error(err.error?.message || "فشل الرفع"));
+                } catch { reject(new Error("فشل الرفع (كود " + xhr.status + ")")); }
+            }
+        };
+        xhr.onerror = () => reject(new Error("خطأ في الاتصال بـ Cloudinary"));
+        xhr.send(formData);
+    });
+}
+
+async function compressImage(file, maxWidth = 1920, quality = 0.85) {
+    if (!file.type.startsWith("image/")) return file;
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let w = img.width, h = img.height;
+                if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth; }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+                            type: "image/jpeg", lastModified: Date.now()
+                        }));
+                    } else resolve(file);
+                }, "image/jpeg", quality);
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
+// ============================================================
+// 🎴 أنواع الكروت
+// ============================================================
+const CARD_TYPES = [
+    { id: "gift", label: "كرت هدية", icon: "fa-gift", desc: "صور + فيديو + موسيقى + رسالة", protected: true },
+    { id: "memory_book", label: "كتاب ذكريات", icon: "fa-book-open", desc: "صفحات متعددة لكل مناسبة", protected: true },
+    { id: "business_card", label: "بطاقة عمل", icon: "fa-id-card", desc: "بياناتك المهنية ووسائل التواصل", protected: false },
+    { id: "pet_card", label: "بطاقة حيوانات", icon: "fa-paw", desc: "بطاقة لحيوانك الأليف — عامة", protected: false }
+];
+
+// ===== الحالة العامة =====
+let currentUser = null;
 let currentCard = null;
+let selectedType = null;
+let eventsState = [];
+let giftNewImages = [];
+let giftCurrentImages = [];
+let giftImagesToDelete = [];
+let giftNewVideo = null;
+let bizNewLogo = null;
+let bizCurrentLogo = "";
+let bizInstagramList = [];
+let bizPhoneList = [];
+let bizWebsiteList = [];
+let newBgMusicFile = null;
+let petNewPhoto = null;
+let petCurrentPhoto = "";
 
-// ===== الحصول على معرف الكرت =====
-function getCardIdFromURL() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("id") || params.get("card") || params.get("c");
+// 🔐 جديد: كلمة المرور (الإجابة السرية)
+let currentEncryptionKey = null;
+
+// ===== دوال مساعدة =====
+function show(el) {
+    if (!el) return;
+    el.classList.remove("hidden");
+    el.style.display = "";
+}
+
+function hide(el) {
+    if (!el) return;
+    el.classList.add("hidden");
+    el.style.display = "";
+}
+
+function generateId() {
+    return "evt_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+}
+
+function toArray(value) {
+    if (Array.isArray(value)) return value.filter(v => v && String(v).trim() !== "");
+    if (value && typeof value === "string" && value.trim() !== "") return [value];
+    return [];
 }
 
 // ============================================================
-// 🚀 بدء التشغيل
+// 🔐 شاشة السؤال السري + الإجابة (بدل كلمة المرور)
 // ============================================================
-async function init() {
-    const cardId = getCardIdFromURL();
-    if (!cardId) {
-        showError("لم يتم تحديد الكرت", "الرجاء مسح رمز QR للوصول إلى الذكرى.");
-        return;
+function showSecurityScreen(cardId, salt, mode, existingQuestion, onSuccess) {
+    // mode: "create" (إنشاء جديد) | "unlock" (فتح موجود)
+    const modal = document.getElementById("passwordModal");
+    const title = document.getElementById("passwordModalTitle");
+    const desc = document.getElementById("passwordModalDesc");
+    const input = document.getElementById("passwordInput");
+    const confirmGroup = document.getElementById("confirmPasswordGroup");
+    const confirmInput = document.getElementById("confirmPasswordInput");
+    const errorMsg = document.getElementById("passwordError");
+    const btn = document.getElementById("btnPasswordConfirm");
+    const btnClose = document.getElementById("btnClosePasswordModal");
+
+    // إخفاء الحقول
+    input.value = "";
+    confirmInput.value = "";
+    errorMsg.style.display = "none";
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> تأكيد';
+
+    // ✅ إضافة حقل السؤال ديناميكياً (إذا لم يكن موجوداً)
+    let questionGroup = document.getElementById("securityQuestionGroup");
+    if (!questionGroup) {
+        questionGroup = document.createElement("div");
+        questionGroup.id = "securityQuestionGroup";
+        questionGroup.className = "form-group";
+        questionGroup.innerHTML = `
+            <label>❓ السؤال السري</label>
+            <input type="text" id="securityQuestionInput" placeholder="مثال: ما اسم أول حيوان أليف لك؟" maxlength="200">
+            <small style="color:#94a3b8;font-size:0.75rem;display:block;margin-top:4px;">
+                سيُعرض هذا السؤال للزائر عند فتح الكرت.
+            </small>
+        `;
+        // ضعه قبل حقل كلمة المرور
+        const passwordGroup = input.closest(".form-group");
+        passwordGroup.parentNode.insertBefore(questionGroup, passwordGroup);
     }
 
-    try {
-        const cardSnap = await getDoc(doc(db, "cards", cardId));
-        if (!cardSnap.exists()) {
-            showError("الكرت غير موجود", "تأكد من صحة الرابط أو تواصل مع الدعم.");
-            return;
-        }
-
-        const card = cardSnap.data();
-        currentCard = card;
-
-        if (!card.ownerId) {
-            showError("الكرت غير مُفعّل", "هذا الكرت لم يُربط بحساب بعد.");
-            return;
-        }
-
-        // 🔐 إذا الكرت محمي بكلمة مرور → اطلبها
-        if (card.salt && card.protected) {
-            showPasswordPrompt(card);
-            return;
-        }
-
-        // كرت عام (بطاقة عمل / حيوانات) → اعرض مباشرة
-        displayCard(card);
-    } catch (error) {
-        console.error(error);
-        showError("خطأ", "حدث خطأ أثناء تحميل الكرت.");
+    // تحديث عنوان حقل الإجابة
+    const passwordLabel = input.previousElementSibling;
+    if (passwordLabel && passwordLabel.tagName === "LABEL") {
+        passwordLabel.textContent = "🔑 الإجابة السرية";
     }
-}
+    input.placeholder = "أدخل الإجابة...";
+    input.type = "text"; // الإجابات نصوص عادة
 
-// ============================================================
-// 🔐 شاشة إدخال كلمة المرور
-// ============================================================
-function showPasswordPrompt(card) {
-    loadingScreen.classList.add("hidden");
-    viewContainer.style.display = "block";
-
-    viewContainer.innerHTML = `
-        <div class="security-screen">
-            <div class="security-box">
-                <div class="lock-icon"><i class="fa-solid fa-lock"></i></div>
-                <h3>🔐 الكرت محمي</h3>
-                <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
-                    أدخل كلمة المرور لعرض المحتوى
-                </p>
-                <input type="password" id="cardPasswordInput" placeholder="كلمة المرور..." autocomplete="off">
-                <button class="btn-unlock" id="btnUnlockCard">
-                    <i class="fa-solid fa-unlock"></i> فتح الكرت
-                </button>
-                <p class="error-msg" id="cardPasswordError">❌ كلمة المرور غير صحيحة</p>
+    if (mode === "create") {
+        title.innerHTML = `<i class="fa-solid fa-shield-halved"></i> حماية كرتك`;
+        desc.textContent = "اختر سؤالاً سرياً وإجابته. سيُعرض السؤال للزائر عند فتح الكرت، ولن تُخزَّن الإجابة (تُستخدم فقط كمفتاح تشفير).";
+        
+        // إظهار حقل السؤال + التأكيد
+        questionGroup.style.display = "block";
+        confirmGroup.style.display = "block";
+        
+        // تحديث label التأكيد
+        const confirmLabel = confirmInput.previousElementSibling;
+        if (confirmLabel && confirmLabel.tagName === "LABEL") {
+            confirmLabel.textContent = "🔁 تأكيد الإجابة السرية";
+        }
+        confirmInput.placeholder = "أعد إدخال الإجابة...";
+        confirmInput.type = "text";
+    } else {
+        title.innerHTML = `<i class="fa-solid fa-lock"></i> الكرت محمي`;
+        desc.textContent = "أجب على السؤال التالي لفتح الكرت.";
+        
+        // إخفاء حقل السؤال (يُعرض السؤال في الوصف)
+        questionGroup.style.display = "none";
+        confirmGroup.style.display = "none";
+        
+        // عرض السؤال بشكل بارز
+        const existingDesc = desc.textContent;
+        desc.innerHTML = `
+            ${existingDesc}
+            <div style="background:#0f172a;border:1px solid #2e374a;border-radius:10px;padding:15px;margin-top:15px;text-align:right;">
+                <div style="color:#94a3b8;font-size:0.75rem;margin-bottom:6px;">السؤال:</div>
+                <div style="color:#e2b714;font-weight:600;font-size:1rem;">${escapeHtml(existingQuestion || "غير محدد")}</div>
             </div>
-        </div>
-    `;
+        `;
+    }
 
-    const input = document.getElementById("cardPasswordInput");
-    const btn = document.getElementById("btnUnlockCard");
-    const errorMsg = document.getElementById("cardPasswordError");
+    modal.classList.add("active");
 
-    const tryUnlock = async () => {
-        const pwd = input.value;
-        if (!pwd) {
-            errorMsg.textContent = "الرجاء إدخال كلمة المرور";
+    const handleConfirm = async () => {
+        const answer = input.value.trim();
+        let question = "";
+
+        if (mode === "create") {
+            question = document.getElementById("securityQuestionInput").value.trim();
+            
+            if (!question) {
+                errorMsg.textContent = "الرجاء إدخال السؤال السري";
+                errorMsg.style.display = "block";
+                return;
+            }
+            if (question.length < 5) {
+                errorMsg.textContent = "السؤال قصير جداً";
+                errorMsg.style.display = "block";
+                return;
+            }
+        }
+
+        if (!answer) {
+            errorMsg.textContent = "الرجاء إدخال الإجابة السرية";
+            errorMsg.style.display = "block";
+            return;
+        }
+        if (answer.length < 2) {
+            errorMsg.textContent = "الإجابة قصيرة جداً";
+            errorMsg.style.display = "block";
+            return;
+        }
+        if (mode === "create" && answer !== confirmInput.value.trim()) {
+            errorMsg.textContent = "الإجابتان غير متطابقتين";
             errorMsg.style.display = "block";
             return;
         }
@@ -134,768 +313,1115 @@ function showPasswordPrompt(card) {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...';
 
         try {
-            const salt = base64UrlToBytes(card.salt);
-            const key = await deriveFinalKey(pwd, null, salt);
+            // ✅ الإجابة = "كلمة المرور" لاشتقاق المفتاح
+            const key = await deriveFinalKey(answer, null, salt);
             currentEncryptionKey = key;
+            sessionStorage.setItem(`enc_key_${cardId}`, "cached");
 
-            let testPassed = false;
-
-            if (card.message && typeof card.message === "object" && card.message.ciphertext) {
-                try {
-                    await decryptText(card.message.ciphertext, card.message.iv, key);
-                    testPassed = true;
-                } catch (e) {}
-            }
-
-            if (!testPassed && card.images && card.images.length > 0 && typeof card.images[0] === "object") {
-                try {
-                    const imgData = card.images[0];
-                    const res = await fetch(imgData.url);
-                    const blob = await res.blob();
-                    await decryptFile(blob, base64UrlToBytes(imgData.iv), key);
-                    testPassed = true;
-                } catch (e) {}
-            }
-
-            if (!testPassed && card.events && card.events.length > 0 && card.events[0].message && typeof card.events[0].message === "object") {
-                try {
-                    await decryptText(card.events[0].message.ciphertext, card.events[0].message.iv, key);
-                    testPassed = true;
-                } catch (e) {}
-            }
-
-            if (!testPassed && (!card.message || typeof card.message === "string")) {
-                testPassed = true;
-            }
-
-            if (testPassed) {
-                await displayCard(card, key);
-            } else {
-                errorMsg.textContent = "❌ كلمة المرور غير صحيحة";
-                errorMsg.style.display = "block";
-                input.value = "";
-                input.focus();
-            }
+            modal.classList.remove("active");
+            onSuccess(key, question);
         } catch (err) {
             console.error(err);
-            errorMsg.textContent = "❌ كلمة المرور غير صحيحة";
+            errorMsg.textContent = "حدث خطأ، حاول مرة أخرى";
             errorMsg.style.display = "block";
-            input.value = "";
-            input.focus();
-        } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-unlock"></i> فتح الكرت';
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> تأكيد';
         }
     };
 
-    btn.addEventListener("click", tryUnlock);
-    input.addEventListener("keypress", (e) => { if (e.key === "Enter") tryUnlock(); });
-    input.focus();
-}
-
-// ===== شاشة الخطأ =====
-function showError(title, message) {
-    loadingScreen.classList.add("hidden");
-    viewContainer.style.display = "block";
-    viewContainer.innerHTML = `
-        <div class="error-screen">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            <h2>${title}</h2>
-            <p style="color: var(--text-muted); max-width: 400px;">${message}</p>
-        </div>
-    `;
+    btn.onclick = handleConfirm;
+    btnClose.onclick = () => modal.classList.remove("active");
+    input.onkeypress = (e) => { if (e.key === "Enter") handleConfirm(); };
+    confirmInput.onkeypress = (e) => { if (e.key === "Enter") handleConfirm(); };
+    setTimeout(() => input.focus(), 100);
 }
 
 // ============================================================
-// 🎨 عرض الكرت
+// 🔐 التحقق من تسجيل الدخول
 // ============================================================
-async function displayCard(card, key = null) {
-    loadingScreen.classList.add("hidden");
-    viewContainer.style.display = "block";
+onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = "login.html"; return; }
+    currentUser = user;
 
-    if (key) currentEncryptionKey = key;
+    try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const userNameEl = document.getElementById("userName");
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            const displayName = userData.name || user.email.split("@")[0];
+            if (userNameEl) userNameEl.textContent = displayName;
+        } else {
+            if (userNameEl) userNameEl.textContent = user.email.split("@")[0];
+        }
+    } catch (error) {
+        console.error("خطأ:", error);
+        const userNameEl = document.getElementById("userName");
+        if (userNameEl) userNameEl.textContent = user.email.split("@")[0];
+    }
 
-    const typeInfo = CARD_TYPES[card.type] || CARD_TYPES.gift;
-    document.documentElement.style.setProperty("--accent", typeInfo.color);
+    await loadUserCards(user.uid);
+});
 
-    if (card.bgMusicUrl) startMusic(card.bgMusicUrl);
-    if (typeInfo.effect) startEffect(typeInfo.effect, typeInfo.color);
+// ===== تسجيل الخروج =====
+document.getElementById("btnLogout")?.addEventListener("click", async () => {
+    sessionStorage.clear();
+    await signOut(auth);
+    window.location.href = "login.html";
+});
 
-    if (card.type === "memory_book") {
-        await renderMemoryBook(card, typeInfo);
-    } else if (card.type === "business_card") {
-        await renderBusinessCard(card, typeInfo);
-    } else if (card.type === "pet_card") {
-        await renderPetCard(card, typeInfo);
+// ============================================================
+// 🔗 ربط الكرت
+// ============================================================
+document.getElementById("btnClaimCard")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    const cardIdInput = document.getElementById("cardIdInput");
+    const cardId = cardIdInput.value.trim().toUpperCase();
+
+    if (!cardId) { alert("الرجاء إدخال رمز الكرت"); return; }
+    if (!currentUser) { alert("يجب تسجيل الدخول أولاً"); return; }
+
+    btn.disabled = true;
+    btn.innerText = "جاري الربط...";
+
+    try {
+        const cardRef = doc(db, "cards", cardId);
+        const cardSnap = await getDoc(cardRef);
+        if (!cardSnap.exists()) { alert("❌ هذا الكرت غير موجود"); return; }
+
+        const data = cardSnap.data();
+        if (data.ownerId && data.ownerId !== currentUser.uid) {
+            alert("❌ هذا الكرت مربوط بحساب آخر"); return;
+        }
+        if (data.ownerId === currentUser.uid) {
+            alert("⚠️ هذا الكرت مربوط بحسابك بالفعل"); return;
+        }
+
+        await updateDoc(cardRef, {
+            ownerId: currentUser.uid,
+            ownerEmail: currentUser.email,
+            claimedAt: serverTimestamp(),
+            type: data.type || null,
+            updatedAt: serverTimestamp()
+        });
+
+        alert("✅ تم ربط الكرت بنجاح!");
+        cardIdInput.value = "";
+        await loadUserCards(currentUser.uid);
+        openEditModal(cardId, { ...data, ownerId: currentUser.uid });
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطأ: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "ربط الكرت";
+    }
+});
+
+// ============================================================
+// 📋 تحميل الكروت
+// ============================================================
+async function loadUserCards(uid) {
+    const myCardsList = document.getElementById("myCardsList");
+    if (!myCardsList) return;
+    myCardsList.innerHTML = "<p style='color:#94a3b8;'>جاري التحميل...</p>";
+
+    try {
+        const q = query(
+            collection(db, "cards"), 
+            where("ownerId", "==", uid),
+            limit(50)
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            myCardsList.innerHTML = "<p style='color:#94a3b8;'>لا توجد منتجات مربوطة بحسابك بعد.</p>";
+            return;
+        }
+
+        myCardsList.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+            const card = docSnap.data();
+            const cardId = docSnap.id;
+            const type = CARD_TYPES.find(t => t.id === card.type);
+
+            const badge = type
+                ? `<div class="card-type-badge"><i class="fa-solid ${type.icon}"></i> ${type.label}</div>`
+                : `<div class="card-type-badge" style="color:#f87171;border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);">
+                    <i class="fa-solid fa-exclamation-triangle"></i> لم يتم تحديد النوع
+                   </div>`;
+
+            const lockIcon = card.salt 
+                ? `<i class="fa-solid fa-lock" style="color:#22c55e;font-size:0.85rem;" title="محمي"></i>` 
+                : `<i class="fa-solid fa-lock-open" style="color:#f59e0b;font-size:0.85rem;" title="عام"></i>`;
+
+            const cardEl = document.createElement("div");
+            cardEl.className = "my-card";
+            cardEl.innerHTML = `
+                ${badge}
+                <div>
+                    <h3>${card.title || "بدون عنوان"}</h3>
+                    <p>رمز الكرت: <strong>${cardId}</strong> ${lockIcon}</p>
+                </div>
+                <button class="btn-edit-memory" data-id="${cardId}">
+                    <i class="fa-solid fa-pen"></i> ${type ? "تعديل الكرت" : "اختر النوع الآن"}
+                </button>
+            `;
+
+            cardEl.querySelector(".btn-edit-memory").addEventListener("click", () => {
+                requestEditWithPassword(cardId, card);
+            });
+            myCardsList.appendChild(cardEl);
+        });
+    } catch (error) {
+        console.error(error);
+        myCardsList.innerHTML = "<p style='color:#f87171;'>فشل تحميل المنتجات</p>";
+    }
+}
+
+// ============================================================
+// 🔐 طلب الإجابة قبل التعديل
+// ============================================================
+async function requestEditWithPassword(cardId, card) {
+    if (!card.salt || !card.protected) {
+        currentEncryptionKey = null;
+        openEditModal(cardId, card);
+        return;
+    }
+
+    if (currentEncryptionKey && sessionStorage.getItem(`enc_key_${cardId}`)) {
+        openEditModal(cardId, card);
+        return;
+    }
+
+    const salt = base64UrlToBytes(card.salt);
+    showSecurityScreen(cardId, salt, "unlock", card.securityQuestion, async (key) => {
+        openEditModal(cardId, card);
+    });
+}
+
+// ============================================================
+// 🖼️ عرض أنواع الكروت
+// ============================================================
+function renderTypeSelector() {
+    const typeSelector = document.getElementById("typeSelector");
+    if (!typeSelector) return;
+
+    typeSelector.innerHTML = "";
+
+    CARD_TYPES.forEach(t => {
+        const option = document.createElement("div");
+        option.className = "type-option";
+        option.dataset.typeId = t.id;
+
+        const badgeHtml = t.protected
+            ? `<div class="type-badge protected">🔒 محمي</div>`
+            : `<div class="type-badge public">🌐 عام</div>`;
+
+        option.innerHTML = `
+            ${badgeHtml}
+            <i class="fa-solid ${t.icon}"></i>
+            <span>${t.label}</span>
+            <small>${t.desc}</small>
+        `;
+
+        option.addEventListener("click", () => {
+            document.querySelectorAll(".type-option").forEach(el => el.classList.remove("selected"));
+            option.classList.add("selected");
+            selectedType = t;
+            const btnConfirmType = document.getElementById("btnConfirmType");
+            if (btnConfirmType) btnConfirmType.disabled = false;
+        });
+
+        typeSelector.appendChild(option);
+    });
+}
+
+// ============================================================
+// 📝 فتح نافذة التعديل
+// ============================================================
+async function openEditModal(cardId, card) {
+    currentCard = { ...card, id: cardId };
+
+    const editCardIdEl = document.getElementById("editCardId");
+    const stepTypeSelect = document.getElementById("stepTypeSelect");
+    const stepCardFields = document.getElementById("stepCardFields");
+    const modalTitle = document.getElementById("modalTitle");
+    const editModal = document.getElementById("editModal");
+
+    if (editCardIdEl) editCardIdEl.value = cardId;
+
+    resetFormState();
+
+    const existingType = card.type ? CARD_TYPES.find(t => t.id === card.type) : null;
+
+    if (existingType) {
+        selectedType = existingType;
+        hide(stepTypeSelect);
+        show(stepCardFields);
+        await showCardFields(card);
     } else {
-        await renderGiftCard(card, typeInfo);
-    }
-
-    document.title = card.title || "ذِكـرى";
-}
-
-// ===== تحميل صورة مشفرة =====
-async function loadEncryptedImage(imageData) {
-    if (typeof imageData === "string") return imageData;
-
-    if (imageData && imageData.encrypted && imageData.url) {
-        if (!currentEncryptionKey) return null;
-        try {
-            const res = await fetch(imageData.url);
-            const encryptedBlob = await res.blob();
-            const iv = base64UrlToBytes(imageData.iv);
-            const decryptedBlob = await decryptFile(encryptedBlob, iv, currentEncryptionKey);
-            return URL.createObjectURL(decryptedBlob);
-        } catch (e) {
-            console.error("فشل فك تشفير صورة:", e);
-            return null;
-        }
-    }
-    return null;
-}
-
-// ============================================================
-// 🎁 كرت الهدية
-// ============================================================
-async function renderGiftCard(card, typeInfo) {
-    const imagesData = card.images || [];
-    const decryptedImages = [];
-    for (const img of imagesData) {
-        const url = await loadEncryptedImage(img);
-        if (url) decryptedImages.push(url);
-    }
-
-    let messageText = "";
-    if (card.message) {
-        if (typeof card.message === "string") {
-            messageText = card.message;
-        } else if (card.message.ciphertext && currentEncryptionKey) {
-            try {
-                messageText = await decryptText(card.message.ciphertext, card.message.iv, currentEncryptionKey);
-            } catch (e) {
-                messageText = "⚠️ تعذّر فك التشفير";
-            }
+        selectedType = null;
+        renderTypeSelector();
+        const btnConfirmType = document.getElementById("btnConfirmType");
+        if (btnConfirmType) btnConfirmType.disabled = true;
+        show(stepTypeSelect);
+        hide(stepCardFields);
+        if (modalTitle) {
+            modalTitle.innerHTML = `<i class="fa-solid fa-list"></i> اختر نوع الكرت`;
         }
     }
 
-        // 🎬 فك تشفير الفيديو (يدعم عدة صيغ)
-    let videoUrl = null;
-    
-    // الحالة 1: videoUrl نص عادي (قديم - غير مشفر)
-    if (card.videoUrl && typeof card.videoUrl === "string") {
-        videoUrl = card.videoUrl;
+    editModal.classList.add("active");
+}
+
+// ============================================================
+// 🔄 إعادة تعيين الحالة
+// ============================================================
+function resetFormState() {
+    giftNewImages = [];
+    giftCurrentImages = [];
+    giftImagesToDelete = [];
+    giftNewVideo = null;
+    bizNewLogo = null;
+    bizCurrentLogo = "";
+    bizInstagramList = [];
+    bizPhoneList = [];
+    bizWebsiteList = [];
+    newBgMusicFile = null;
+    petNewPhoto = null;
+    petCurrentPhoto = "";
+    eventsState = [];
+
+    const ids = [
+        "giftTitle", "giftMessage", "bookTitle", "bizName", "bizJobTitle",
+        "bizCompany", "bizBio", "bizServices", "bizEmail",
+        "bizAddress", "bizFacebook", "bizLinkedin",
+        "petName", "petType", "petBreed", "petAge", "petWeight",
+        "petColor", "petNotes", "petVaccinations",
+        "petOwnerName", "petOwnerPhone", "petAddress"
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    const fileIds = ["giftImages", "giftVideo", "bizLogo", "editBgMusic", "petPhoto"];
+    fileIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    const statusIds = ["giftImagesStatus", "giftVideoStatus", "bizLogoStatus", "bgMusicStatus", "petPhotoStatus"];
+    statusIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = "";
+    });
+
+    const giftCurrentImagesEl = document.getElementById("giftCurrentImages");
+    if (giftCurrentImagesEl) giftCurrentImagesEl.innerHTML = "";
+
+    const giftImagesCountEl = document.getElementById("giftImagesCount");
+    if (giftImagesCountEl) giftImagesCountEl.textContent = "0";
+
+    const bizLogoContainerEl = document.getElementById("bizLogoContainer");
+    if (bizLogoContainerEl) bizLogoContainerEl.innerHTML = "";
+
+    const petPhotoContainerEl = document.getElementById("petPhotoContainer");
+    if (petPhotoContainerEl) petPhotoContainerEl.innerHTML = "";
+
+    const eventsListEl = document.getElementById("eventsList");
+    if (eventsListEl) eventsListEl.innerHTML = "";
+
+    const instagramListEl = document.getElementById("instagramList");
+    if (instagramListEl) instagramListEl.innerHTML = "";
+
+    const phoneListEl = document.getElementById("phoneList");
+    if (phoneListEl) phoneListEl.innerHTML = "";
+
+    const websiteListEl = document.getElementById("websiteList");
+    if (websiteListEl) websiteListEl.innerHTML = "";
+}
+
+// ============================================================
+// ✅ تأكيد النوع
+// ============================================================
+document.getElementById("btnConfirmType")?.addEventListener("click", async () => {
+    if (!selectedType) {
+        alert("يرجى اختيار نوع الكرت أولاً");
+        return;
     }
-    // الحالة 2: video كائن مشفر (جديد)
-    else if (card.video && typeof card.video === "object" && card.video.encrypted && card.video.url) {
-        if (currentEncryptionKey) {
+
+    // إذا النوع محمي → اطلب السؤال + الإجابة
+    if (selectedType.protected && !currentEncryptionKey) {
+        const cardId = document.getElementById("editCardId").value;
+        const cardRef = doc(db, "cards", cardId);
+        const cardSnap = await getDoc(cardRef);
+        const cardData = cardSnap.data();
+
+        if (!cardData.salt) {
+            const newSalt = generateSalt();
+            const saltB64 = bytesToBase64Url(newSalt);
+
+            showSecurityScreen(cardId, newSalt, "create", null, async (key, question) => {
+                await updateDoc(cardRef, {
+                    salt: saltB64,
+                    encryptionVersion: 1,
+                    securityQuestion: question,
+                    updatedAt: serverTimestamp()
+                });
+                currentCard.salt = saltB64;
+                currentCard.securityQuestion = question;
+                await showCardFields(currentCard);
+            });
+            return;
+        } else {
+            const salt = base64UrlToBytes(cardData.salt);
+            showSecurityScreen(cardId, salt, "unlock", cardData.securityQuestion, async (key) => {
+                await showCardFields(currentCard);
+            });
+            return;
+        }
+    }
+
+    await showCardFields(currentCard || {});
+});
+
+// ============================================================
+// 📋 عرض الحقول حسب النوع
+// ============================================================
+async function showCardFields(card) {
+    if (!selectedType) return;
+
+    hide(document.getElementById("stepTypeSelect"));
+    show(document.getElementById("stepCardFields"));
+
+    const modalTitle = document.getElementById("modalTitle");
+    if (modalTitle) modalTitle.innerHTML = `<i class="fa-solid ${selectedType.icon}"></i> ${selectedType.label}`;
+
+    hide(document.getElementById("giftFields"));
+    hide(document.getElementById("bookFields"));
+    hide(document.getElementById("businessFields"));
+    hide(document.getElementById("petFields"));
+
+    // ========== كرت هدية ==========
+    if (selectedType.id === "gift") {
+        show(document.getElementById("giftFields"));
+        document.getElementById("giftTitle").value = card.title || "";
+
+        if (card.message && typeof card.message === "object" && card.message.ciphertext) {
             try {
-                console.log("🎬 تحميل فيديو مشفر...");
-                const res = await fetch(card.video.url);
-                if (!res.ok) throw new Error("فشل تحميل الفيديو: " + res.status);
-                
-                const encryptedBlob = await res.blob();
-                console.log("📦 حجم الملف المشفر:", encryptedBlob.size, "بايت");
-                
-                const iv = base64UrlToBytes(card.video.iv);
-                const decryptedBlob = await decryptFile(encryptedBlob, iv, currentEncryptionKey);
-                videoUrl = URL.createObjectURL(decryptedBlob);
-                console.log("✅ تم فك تشفير الفيديو:", decryptedBlob.size, "بايت");
+                if (currentEncryptionKey) {
+                    const decrypted = await decryptText(card.message.ciphertext, card.message.iv, currentEncryptionKey);
+                    document.getElementById("giftMessage").value = decrypted;
+                } else {
+                    document.getElementById("giftMessage").value = "";
+                    document.getElementById("giftMessage").placeholder = "🔒 الرسالة مشفرة";
+                }
             } catch (e) {
-                console.error("❌ فشل فك تشفير الفيديو:", e);
-                // لا نوقف العرض — نستمر بدون فيديو
+                document.getElementById("giftMessage").value = "";
+                document.getElementById("giftMessage").placeholder = "⚠️ الإجابة خاطئة";
             }
         } else {
-            console.warn("⚠️ لا يوجد مفتاح لفك تشفير الفيديو");
+            document.getElementById("giftMessage").value = card.message || "";
+        }
+
+        giftCurrentImages = card.images || [];
+        giftImagesToDelete = [];
+        renderGiftImages();
+
+        if (card.video) {
+            document.getElementById("giftVideoStatus").textContent = "✅ يوجد فيديو محفوظ";
         }
     }
-    // الحالة 3: video نص عادي (احتياطي)
-    else if (card.video && typeof card.video === "string") {
-        videoUrl = card.video;
-    }
 
-    viewContainer.innerHTML = `
-        <header class="gift-header">
-            <div class="gift-icon" style="color: ${typeInfo.color};">
-                <i class="fa-solid ${typeInfo.icon}"></i>
-            </div>
-            <h1>${escapeHtml(card.title) || "🎁 هدية خاصة 🎁"}</h1>
-            <div class="gift-label">
-                <i class="fa-solid ${typeInfo.icon}"></i> ${typeInfo.label}
-            </div>
-        </header>
+    // ========== كتاب ذكريات ==========
+    if (selectedType.id === "memory_book") {
+        show(document.getElementById("bookFields"));
+        document.getElementById("bookTitle").value = card.title || "";
 
-        ${messageText ? `<div class="message-box"><p>${escapeHtml(messageText)}</p></div>` : ""}
+        eventsState = JSON.parse(JSON.stringify(card.events || []));
 
-        ${decryptedImages.length > 0 ? `
-            <h3 class="section-title"><i class="fa-solid fa-images"></i> ألبوم الصور (${decryptedImages.length})</h3>
-            <div class="album-container" id="albumContainer">
-                <div class="album-viewport" id="albumViewport">
-                    <div class="album-counter" id="albumCounter">1 / ${decryptedImages.length}</div>
-                    ${decryptedImages.map((url, i) => `
-                        <div class="album-slide ${i === 0 ? "active" : ""}" data-slide="${i}">
-                            <img src="${url}" alt="صورة ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" draggable="false">
-                        </div>
-                    `).join("")}
-                    ${decryptedImages.length > 1 ? `
-                        <button class="album-nav-btn prev" id="albumPrev"><i class="fa-solid fa-chevron-right"></i></button>
-                        <button class="album-nav-btn next" id="albumNext"><i class="fa-solid fa-chevron-left"></i></button>
-                    ` : ""}
-                </div>
-                ${decryptedImages.length > 1 ? `
-                    <div class="album-dots" id="albumDots">
-                        ${decryptedImages.map((_, i) => `<button class="album-dot ${i === 0 ? "active" : ""}" data-dot="${i}"></button>`).join("")}
-                    </div>
-                ` : ""}
-            </div>
-        ` : ""}
-
-        ${videoUrl ? `
-            <h3 class="section-title"><i class="fa-solid fa-video"></i> الفيديو</h3>
-            <div class="video-wrapper">
-                <video controls playsinline preload="metadata"><source src="${videoUrl}" type="video/mp4"></video>
-            </div>
-        ` : ""}
-    `;
-
-    currentImages = decryptedImages;
-    setupAlbum();
-}
-
-// ============================================================
-// 📖 كتاب الذكريات
-// ============================================================
-async function renderMemoryBook(card, typeInfo) {
-    bookPages = [];
-    const rawEvents = card.events || [];
-
-    for (const evt of rawEvents) {
-        let message = "";
-        if (evt.message) {
-            if (typeof evt.message === "string") {
-                message = evt.message;
-            } else if (evt.message.ciphertext && currentEncryptionKey) {
-                try {
-                    message = await decryptText(evt.message.ciphertext, evt.message.iv, currentEncryptionKey);
-                } catch (e) {
-                    message = "⚠️ تعذّر فك التشفير";
+        if (currentEncryptionKey) {
+            for (let i = 0; i < eventsState.length; i++) {
+                const evt = eventsState[i];
+                if (evt.message && typeof evt.message === "object" && evt.message.ciphertext) {
+                    try {
+                        const decrypted = await decryptText(evt.message.ciphertext, evt.message.iv, currentEncryptionKey);
+                        eventsState[i].message = decrypted;
+                    } catch (e) {
+                        eventsState[i].message = "";
+                    }
+                }
+            }
+        } else {
+            for (let i = 0; i < eventsState.length; i++) {
+                if (eventsState[i].message && typeof eventsState[i].message === "object") {
+                    eventsState[i].message = "";
                 }
             }
         }
 
-        const decryptedImages = [];
-        for (const img of (evt.images || [])) {
-            const url = await loadEncryptedImage(img);
-            if (url) decryptedImages.push(url);
-        }
-
-        let videoUrl = null;
-        if (evt.video) {
-            if (typeof evt.video === "string") {
-                videoUrl = evt.video;
-            } else if (evt.video.encrypted && currentEncryptionKey) {
-                try {
-                    const res = await fetch(evt.video.url);
-                    const encryptedBlob = await res.blob();
-                    const iv = base64UrlToBytes(evt.video.iv);
-                    const decryptedBlob = await decryptFile(encryptedBlob, iv, currentEncryptionKey);
-                    videoUrl = URL.createObjectURL(decryptedBlob);
-                } catch (e) {}
-            }
-        }
-
-        bookPages.push({
-            id: evt.id, emoji: evt.emoji, title: evt.title, date: evt.date,
-            message: message, images: decryptedImages, videoUrl: videoUrl
-        });
+        if (eventsState.length === 0) eventsState.push(createEmptyEvent());
+        renderEvents();
     }
 
-    currentBookPage = 0;
+    // ========== بطاقة عمل ==========
+    if (selectedType.id === "business_card") {
+        show(document.getElementById("businessFields"));
+        document.getElementById("bizName").value = card.name || "";
+        document.getElementById("bizJobTitle").value = card.jobTitle || "";
+        document.getElementById("bizCompany").value = card.company || "";
+        document.getElementById("bizBio").value = card.bio || "";
+        document.getElementById("bizServices").value = card.services || "";
+        document.getElementById("bizEmail").value = card.email || "";
+        document.getElementById("bizAddress").value = card.address || "";
+        document.getElementById("bizFacebook").value = card.facebook || "";
+        document.getElementById("bizLinkedin").value = card.linkedin || "";
 
-    if (bookPages.length === 0) {
-        viewContainer.innerHTML = `
-            <div class="error-screen">
-                <i class="fa-solid fa-book" style="color: var(--accent);"></i>
-                <h2>الكتاب فارغ</h2>
-            </div>
+        bizInstagramList = toArray(card.instagram);
+        renderInstagramList();
+        bizPhoneList = toArray(card.phone);
+        renderPhoneList();
+        bizWebsiteList = toArray(card.website);
+        renderWebsiteList();
+
+        bizCurrentLogo = card.logoUrl || "";
+        renderBizLogo();
+    }
+
+    // ========== بطاقة حيوانات ==========
+    if (selectedType.id === "pet_card") {
+        show(document.getElementById("petFields"));
+        document.getElementById("petName").value = card.petName || "";
+        document.getElementById("petType").value = card.petType || "";
+        document.getElementById("petBreed").value = card.petBreed || "";
+        document.getElementById("petAge").value = card.petAge || "";
+        document.getElementById("petWeight").value = card.petWeight || "";
+        document.getElementById("petColor").value = card.petColor || "";
+        document.getElementById("petNotes").value = card.petNotes || "";
+        document.getElementById("petVaccinations").value = card.petVaccinations || "";
+        document.getElementById("petOwnerName").value = card.petOwnerName || "";
+        document.getElementById("petOwnerPhone").value = card.petOwnerPhone || "";
+        document.getElementById("petAddress").value = card.petAddress || "";
+
+        petCurrentPhoto = card.petPhoto || "";
+        renderPetPhoto();
+    }
+
+    if (card.bgMusicUrl) {
+        document.getElementById("bgMusicStatus").textContent = "✅ توجد موسيقى محفوظة";
+    }
+}
+
+// ===== قوائم ديناميكية =====
+function renderInstagramList() {
+    renderSocialList("instagramList", bizInstagramList, "@username", "fa-brands fa-instagram", "#e1306c");
+}
+
+function renderPhoneList() {
+    renderSocialList("phoneList", bizPhoneList, "+962 7XXXXXXXX", "fa-solid fa-phone", "#22c55e");
+}
+
+function renderWebsiteList() {
+    renderSocialList("websiteList", bizWebsiteList, "https://example.com", "fa-solid fa-globe", "#3b82f6");
+}
+
+function renderSocialList(containerId, list, placeholder, iconClass, iconColor) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (list.length === 0) list.push("");
+
+    container.innerHTML = "";
+    list.forEach((value, index) => {
+        const item = document.createElement("div");
+        item.className = "social-item";
+        item.innerHTML = `
+            <i class="${iconClass}" style="color:${iconColor};font-size:1.2rem;"></i>
+            <input type="text" placeholder="${placeholder}" value="${value || ""}" data-index="${index}">
+            <button type="button" class="btn-remove-social" data-index="${index}">
+                <i class="fa-solid fa-trash"></i>
+            </button>
         `;
+
+        item.querySelector("input").addEventListener("input", (e) => {
+            list[index] = e.target.value;
+        });
+
+        item.querySelector(".btn-remove-social").addEventListener("click", () => {
+            if (list.length === 1) {
+                list[0] = "";
+                renderSocialList(containerId, list, placeholder, iconClass, iconColor);
+                return;
+            }
+            list.splice(index, 1);
+            renderSocialList(containerId, list, placeholder, iconClass, iconColor);
+        });
+
+        container.appendChild(item);
+    });
+}
+
+// ===== أحداث الإضافة =====
+document.getElementById("btnAddInstagram")?.addEventListener("click", () => {
+    bizInstagramList.push("");
+    renderInstagramList();
+    focusLastInput("instagramList");
+});
+
+document.getElementById("btnAddPhone")?.addEventListener("click", () => {
+    bizPhoneList.push("");
+    renderPhoneList();
+    focusLastInput("phoneList");
+});
+
+document.getElementById("btnAddWebsite")?.addEventListener("click", () => {
+    bizWebsiteList.push("");
+    renderWebsiteList();
+    focusLastInput("websiteList");
+});
+
+function focusLastInput(containerId) {
+    const inputs = document.querySelectorAll(`#${containerId} input`);
+    if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+// ===== عرض صور كرت الهدية =====
+function renderGiftImages() {
+    const container = document.getElementById("giftCurrentImages");
+    const countEl = document.getElementById("giftImagesCount");
+    if (countEl) countEl.textContent = giftCurrentImages.length;
+    if (!container) return;
+
+    if (giftCurrentImages.length === 0) {
+        container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا توجد صور محفوظة.</p>";
         return;
     }
 
-    viewContainer.innerHTML = `
-        <div class="book-container">
-            <div class="book-cover">
-                <h1>📖 ${escapeHtml(card.title) || "كتاب الذكريات"}</h1>
-                <p class="book-subtitle">${bookPages.length} صفحة</p>
-            </div>
-            <div class="book-pages" id="bookPages">
-                ${bookPages.map((evt, i) => renderBookPage(evt, i)).join("")}
-            </div>
-            <div class="book-controls">
-                <button class="book-nav-btn" id="bookPrev" disabled><i class="fa-solid fa-chevron-right"></i> السابق</button>
-                <div class="book-page-indicator">صفحة <strong id="currentPageNum">1</strong> من ${bookPages.length}</div>
-                <button class="book-nav-btn" id="bookNext" ${bookPages.length <= 1 ? "disabled" : ""}>التالي <i class="fa-solid fa-chevron-left"></i></button>
-            </div>
-            <div class="book-dots" id="bookDots">
-                ${bookPages.map((_, i) => `<button class="book-dot ${i === 0 ? "active" : ""}" data-page="${i}"></button>`).join("")}
-            </div>
-        </div>
-    `;
-
-    setupBookNavigation();
-    showBookPage(0);
-}
-
-function renderBookPage(evt, index) {
-    const images = evt.images || [];
-    return `
-        <div class="book-page ${index === 0 ? "active" : ""}" data-page="${index}">
-            <div class="page-header">
-                <div class="page-emoji">${evt.emoji || "📌"}</div>
-                <h2 class="page-title">${escapeHtml(evt.title) || "ذكرى"}</h2>
-                ${evt.date ? `<p class="page-date"><i class="fa-solid fa-calendar"></i> ${formatDate(evt.date)}</p>` : ""}
-            </div>
-            ${evt.message ? `<p class="page-message">${escapeHtml(evt.message)}</p>` : ""}
-            ${images.length > 0 ? `<div class="page-gallery">${images.map(url => `<img src="${url}" loading="lazy">`).join("")}</div>` : ""}
-            ${evt.videoUrl ? `<div class="page-video"><video controls playsinline preload="metadata"><source src="${evt.videoUrl}" type="video/mp4"></video></div>` : ""}
-        </div>
-    `;
-}
-
-function setupBookNavigation() {
-    const prevBtn = document.getElementById("bookPrev");
-    const nextBtn = document.getElementById("bookNext");
-    prevBtn?.addEventListener("click", () => showBookPage(currentBookPage - 1));
-    nextBtn?.addEventListener("click", () => showBookPage(currentBookPage + 1));
-    document.querySelectorAll(".book-dot").forEach(dot => {
-        dot.addEventListener("click", () => showBookPage(parseInt(dot.dataset.page)));
-    });
-}
-
-function showBookPage(pageNum) {
-    if (pageNum < 0 || pageNum >= bookPages.length) return;
-    currentBookPage = pageNum;
-
-    document.querySelectorAll(".book-page").forEach(p => p.classList.remove("active"));
-    const activePage = document.querySelector(`.book-page[data-page="${pageNum}"]`);
-    if (activePage) activePage.classList.add("active");
-
-    const pageNumEl = document.getElementById("currentPageNum");
-    if (pageNumEl) pageNumEl.textContent = pageNum + 1;
-
-    document.querySelectorAll(".book-dot").forEach((d, i) => {
-        d.classList.toggle("active", i === pageNum);
-    });
-
-    const prevBtn = document.getElementById("bookPrev");
-    const nextBtn = document.getElementById("bookNext");
-    if (prevBtn) prevBtn.disabled = pageNum === 0;
-    if (nextBtn) nextBtn.disabled = pageNum === bookPages.length - 1;
-
-    const pageImages = bookPages[pageNum].images || [];
-    currentImages = pageImages;
-    setupGallery();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-// ============================================================
-// 💼 بطاقة العمل
-// ============================================================
-function toArray(value) {
-    if (Array.isArray(value)) return value.filter(v => v && String(v).trim() !== "");
-    if (value && typeof value === "string" && value.trim() !== "") return [value];
-    return [];
-}
-
-function cleanInstagram(u) {
-    return String(u).replace(/^@/, "").replace(/^.*instagram\.com\//, "").replace(/\/$/, "").trim();
-}
-function cleanPhone(p) { return String(p).replace(/[^\d+]/g, ""); }
-function cleanWebsite(u) {
-    let s = String(u).trim();
-    if (!s) return "";
-    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
-    return s;
-}
-function displayWebsite(u) { return String(u).replace(/^https?:\/\//i, "").replace(/\/$/, ""); }
-
-async function renderBusinessCard(card, typeInfo) {
-    const phones = toArray(card.phone);
-    const websites = toArray(card.website);
-    const instagrams = toArray(card.instagram);
-    const facebook = toArray(card.facebook);
-    const linkedin = toArray(card.linkedin);
-    const emails = toArray(card.email);
-
-    // الشعار (غير مشفر — بطاقة عمل عامة)
-    const logoUrl = card.logoUrl || "";
-
-    const contacts = [];
-    phones.forEach(num => {
-        contacts.push(`<a href="tel:${cleanPhone(num)}" class="biz-contact-btn"><i class="fa-solid fa-phone"></i> ${escapeHtml(num)}</a>`);
-    });
-    emails.forEach(mail => {
-        contacts.push(`<a href="mailto:${mail}" class="biz-contact-btn"><i class="fa-solid fa-envelope"></i> راسلني</a>`);
-    });
-    phones.forEach(num => {
-        const waNum = cleanPhone(num).replace(/^\+/, "");
-        contacts.push(`<a href="https://wa.me/${waNum}" target="_blank" class="biz-contact-btn full-width"><i class="fa-brands fa-whatsapp"></i> واتساب: ${escapeHtml(num)}</a>`);
-    });
-    websites.forEach(site => {
-        contacts.push(`<a href="${cleanWebsite(site)}" target="_blank" class="biz-contact-btn full-width"><i class="fa-solid fa-globe"></i> ${escapeHtml(displayWebsite(site))}</a>`);
-    });
-    if (card.address) {
-        contacts.push(`<a href="https://maps.google.com/?q=${encodeURIComponent(card.address)}" target="_blank" class="biz-contact-btn full-width"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.address)}</a>`);
-    }
-
-    const socials = [];
-    instagrams.forEach(acc => {
-        socials.push(`<a href="https://instagram.com/${cleanInstagram(acc)}" target="_blank" class="biz-social-btn instagram"><i class="fa-brands fa-instagram"></i></a>`);
-    });
-    facebook.forEach(fb => {
-        socials.push(`<a href="https://${String(fb).replace(/^https?:\/\//i, "")}" target="_blank" class="biz-social-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`);
-    });
-    linkedin.forEach(li => {
-        socials.push(`<a href="https://${String(li).replace(/^https?:\/\//i, "")}" target="_blank" class="biz-social-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`);
-    });
-    websites.forEach(site => {
-        socials.push(`<a href="${cleanWebsite(site)}" target="_blank" class="biz-social-btn website"><i class="fa-solid fa-globe"></i></a>`);
-    });
-
-    viewContainer.innerHTML = `
-        <div class="biz-card">
-            ${logoUrl ? `<img src="${logoUrl}" class="biz-logo" alt="Logo">` : `<div class="biz-logo-placeholder"><i class="fa-solid fa-user"></i></div>`}
-            <h1 class="biz-name">${escapeHtml(card.name) || "بطاقة عمل"}</h1>
-            ${card.jobTitle ? `<p class="biz-job">${escapeHtml(card.jobTitle)}</p>` : ""}
-            ${card.company ? `<p class="biz-company">${escapeHtml(card.company)}</p>` : ""}
-            ${card.bio ? `<div class="biz-section"><div class="biz-section-title"><i class="fa-solid fa-user"></i> نبذة</div><div class="biz-section-content">${escapeHtml(card.bio)}</div></div>` : ""}
-            ${card.services ? `<div class="biz-section"><div class="biz-section-title"><i class="fa-solid fa-briefcase"></i> الخدمات</div><div class="biz-section-content">${escapeHtml(card.services)}</div></div>` : ""}
-            ${contacts.length > 0 ? `<div class="biz-contacts">${contacts.join("")}</div>` : ""}
-            ${socials.length > 0 ? `<div class="biz-socials">${socials.join("")}</div>` : ""}
-        </div>
-    `;
-}
-
-// ============================================================
-// 🐾 بطاقة الحيوانات
-// ============================================================
-async function renderPetCard(card, typeInfo) {
-    const petPhoto = card.petPhoto || "";
-
-    const typeEmoji = {
-        "قط": "🐱", "كلب": "🐶", "طير": "🐦", "أرنب": "🐰",
-        "سمكة": "🐠", "سلحفاة": "🐢", "هامستر": "🐹", "آخر": "🐾"
-    };
-
-    const petEmoji = typeEmoji[card.petType] || "🐾";
-
-    // بناء شبكة المعلومات
-    const infoItems = [];
-    if (card.petBreed) infoItems.push({ label: "🧬 السلالة", value: card.petBreed });
-    if (card.petAge) infoItems.push({ label: "🎂 العمر", value: card.petAge });
-    if (card.petWeight) infoItems.push({ label: "⚖️ الوزن", value: card.petWeight });
-    if (card.petColor) infoItems.push({ label: "🎨 اللون", value: card.petColor });
-
-    const infoGridHtml = infoItems.length > 0 ? `
-        <div class="pet-info-grid">
-            ${infoItems.map(item => `
-                <div class="pet-info-item">
-                    <div class="pet-info-label">${item.label}</div>
-                    <div class="pet-info-value">${escapeHtml(item.value)}</div>
-                </div>
-            `).join("")}
-        </div>
-    ` : "";
-
-    // ملاحظات
-    const notesHtml = card.petNotes ? `
-        <div class="pet-notes-box">
-            <div class="title"><i class="fa-solid fa-triangle-exclamation"></i> ملاحظات مهمة</div>
-            <div class="content">${escapeHtml(card.petNotes)}</div>
-        </div>
-    ` : "";
-
-    // آخر تطعيم
-    const vaccinationHtml = card.petVaccinations ? `
-        <div class="pet-info-item" style="margin-top: 15px;">
-            <div class="pet-info-label">💉 آخر تطعيم</div>
-            <div class="pet-info-value">${formatDate(card.petVaccinations)}</div>
-        </div>
-    ` : "";
-
-    // معلومات التواصل
-    const phoneClean = cleanPhone(card.petOwnerPhone || "");
-    const contactHtml = card.petOwnerPhone ? `
-        <div class="pet-contact-box">
-            <div class="title">📞 إذا وجدت هذا الحيوان، اتصل بمالكه</div>
-            ${card.petOwnerName ? `<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px;">${escapeHtml(card.petOwnerName)}</div>` : ""}
-            <a href="tel:${phoneClean}" class="pet-contact-btn">
-                <i class="fa-solid fa-phone"></i> ${escapeHtml(card.petOwnerPhone)}
-            </a>
-            ${card.petAddress ? `
-                <a href="https://maps.google.com/?q=${encodeURIComponent(card.petAddress)}" target="_blank" class="pet-contact-btn" style="background: #0f172a; color: #fff;">
-                    <i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.petAddress)}
-                </a>
-            ` : ""}
-        </div>
-    ` : "";
-
-    viewContainer.innerHTML = `
-        <div class="pet-card">
-            ${petPhoto
-                ? `<img src="${petPhoto}" class="pet-photo" alt="${escapeHtml(card.petName)}">`
-                : `<div class="pet-photo-placeholder">${petEmoji}</div>`
+    container.innerHTML = "";
+    giftCurrentImages.forEach((url, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "image-locked";
+        wrapper.innerHTML = `<i class="fa-solid fa-image"></i>`;
+        wrapper.title = `صورة ${index + 1} (مشفرة) — اضغط لحذفها`;
+        wrapper.style.cursor = "pointer";
+        wrapper.addEventListener("click", () => {
+            if (confirm(`حذف الصورة ${index + 1}؟`)) {
+                giftCurrentImages = giftCurrentImages.filter(u => u !== url);
+                giftImagesToDelete.push(url);
+                renderGiftImages();
             }
-            <h1 class="pet-name">${escapeHtml(card.petName) || "حيوان أليف"}</h1>
-            <p class="pet-type">${petEmoji} ${escapeHtml(card.petType) || "حيوان"}</p>
+        });
+        container.appendChild(wrapper);
+    });
+}
 
-            ${infoGridHtml}
-            ${vaccinationHtml}
-            ${notesHtml}
-            ${contactHtml}
+// ===== عرض شعار بطاقة العمل =====
+function renderBizLogo() {
+    const container = document.getElementById("bizLogoContainer");
+    if (!container) return;
+
+    if (!bizCurrentLogo) {
+        container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا يوجد شعار محفوظ.</p>";
+        return;
+    }
+    container.innerHTML = `
+        <div class="image-thumb">
+            <img src="${bizCurrentLogo}" style="width:100px;height:100px;">
+            <button type="button" id="removeBizLogo">×</button>
         </div>
+    `;
+    document.getElementById("removeBizLogo").addEventListener("click", () => {
+        if (confirm("حذف الشعار الحالي؟")) {
+            bizCurrentLogo = "";
+            renderBizLogo();
+        }
+    });
+}
+
+// ===== عرض صورة الحيوان =====
+function renderPetPhoto() {
+    const container = document.getElementById("petPhotoContainer");
+    if (!container) return;
+
+    if (!petCurrentPhoto) {
+        container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا توجد صورة محفوظة.</p>";
+        return;
+    }
+    container.innerHTML = `
+        <div class="image-thumb">
+            <img src="${petCurrentPhoto}" style="width:100px;height:100px;">
+            <button type="button" id="removePetPhoto">×</button>
+        </div>
+    `;
+    document.getElementById("removePetPhoto").addEventListener("click", () => {
+        if (confirm("حذف صورة الحيوان؟")) {
+            petCurrentPhoto = "";
+            renderPetPhoto();
+        }
+    });
+}
+
+// ===== إنشاء صفحة فارغة =====
+function createEmptyEvent() {
+    return {
+        id: generateId(),
+        emoji: "📌",
+        title: "",
+        date: "",
+        message: "",
+        images: [],
+        video: "",
+        _newImages: [],
+        _newVideo: null
+    };
+}
+
+// ===== خيارات الإيموجي =====
+const EMOJI_OPTIONS = ["❤️", "🎂", "✈️", "🎓", "💍", "🌟", "🎉", "📸", "🎁", "🏖️", "🎊", "🌸", "👶", "🏆", "☕", "🎵"];
+
+// ===== عرض صفحات كتاب الذكريات =====
+function renderEvents() {
+    const eventsListEl = document.getElementById("eventsList");
+    if (!eventsListEl) return;
+    eventsListEl.innerHTML = "";
+
+    eventsState.forEach((evt, index) => {
+        const el = document.createElement("div");
+        el.className = "event-card";
+
+        el.innerHTML = `
+            <div class="event-card-header">
+                <h4>
+                    <span class="event-number">صفحة ${index + 1}</span>
+                    ${evt.emoji || "📌"} ${evt.title || "بدون عنوان"}
+                </h4>
+                <button type="button" class="btn-remove-event" data-index="${index}">
+                    <i class="fa-solid fa-trash"></i> حذف
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label>اختر إيموجي للصفحة</label>
+                <div class="emoji-picker" data-index="${index}">
+                    ${EMOJI_OPTIONS.map(e =>
+                        `<button type="button" data-emoji="${e}" class="${e === evt.emoji ? "selected" : ""}">${e}</button>`
+                    ).join("")}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>عنوان الصفحة</label>
+                <input type="text" class="evt-title" data-field="title" value="${evt.title || ""}" placeholder="مثال: أول لقاء">
+            </div>
+
+            <div class="form-group">
+                <label>التاريخ (اختياري)</label>
+                <input type="date" class="evt-date" data-field="date" value="${evt.date || ""}">
+            </div>
+
+            <div class="form-group">
+                <label>الرسالة / الذكرى 🔐</label>
+                <textarea class="evt-message" data-field="message" rows="3" placeholder="اكتب ما حدث...">${evt.message || ""}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>📸 الصور المحفوظة (${(evt.images || []).length})</label>
+                <div class="current-images-container" data-ev-images="${index}"></div>
+            </div>
+
+            <div class="form-group">
+                <label>📤 إضافة صور جديدة</label>
+                <input type="file" class="evt-images" accept="image/*" multiple data-index="${index}">
+                <span class="file-status evt-images-status" data-index="${index}"></span>
+            </div>
+
+            <div class="form-group">
+                <label>🎬 ${evt.video ? "استبدال الفيديو الحالي" : "فيديو الصفحة (اختياري)"}</label>
+                <input type="file" class="evt-video" accept="video/*" data-index="${index}">
+                <span class="file-status evt-video-status" data-index="${index}">
+                    ${evt.video ? "✅ يوجد فيديو محفوظ" : ""}
+                </span>
+            </div>
+        `;
+
+        eventsListEl.appendChild(el);
+
+        el.querySelectorAll(".emoji-picker button").forEach(btn => {
+            btn.addEventListener("click", () => {
+                eventsState[index].emoji = btn.dataset.emoji;
+                el.querySelectorAll(".emoji-picker button").forEach(b => b.classList.remove("selected"));
+                btn.classList.add("selected");
+                updateEventHeader(el, index);
+            });
+        });
+
+        el.querySelectorAll("[data-field]").forEach(input => {
+            input.addEventListener("input", (e) => {
+                eventsState[index][e.target.dataset.field] = e.target.value;
+                if (e.target.dataset.field === "title") updateEventHeader(el, index);
+            });
+        });
+
+        el.querySelector(".btn-remove-event").addEventListener("click", () => {
+            if (eventsState.length === 1) {
+                alert("يجب أن يحتوي الكتاب على صفحة واحدة على الأقل");
+                return;
+            }
+            if (confirm("حذف هذه الصفحة؟")) {
+                eventsState.splice(index, 1);
+                renderEvents();
+            }
+        });
+
+        renderEventImages(index);
+
+        el.querySelector(".evt-images").addEventListener("change", (e) => {
+            eventsState[index]._newImages = Array.from(e.target.files);
+            const status = el.querySelector(`.evt-images-status[data-index="${index}"]`);
+            if (status) status.textContent = `📎 ${e.target.files.length} صورة جديدة جاهزة`;
+        });
+
+        el.querySelector(".evt-video").addEventListener("change", (e) => {
+            eventsState[index]._newVideo = e.target.files[0] || null;
+            const status = el.querySelector(`.evt-video-status[data-index="${index}"]`);
+            if (status) status.textContent = e.target.files[0]
+                ? "📎 فيديو جديد جاهز"
+                : (eventsState[index].video ? "✅ يوجد فيديو محفوظ" : "");
+        });
+    });
+}
+
+function updateEventHeader(el, index) {
+    const evt = eventsState[index];
+    el.querySelector("h4").innerHTML = `
+        <span class="event-number">صفحة ${index + 1}</span>
+        ${evt.emoji || "📌"} ${evt.title || "بدون عنوان"}
     `;
 }
 
-// ============================================================
-// 🖼️ الألبوم
-// ============================================================
-function setupAlbum() {
-    const viewport = document.getElementById("albumViewport");
-    if (!viewport) return;
+function renderEventImages(index) {
+    const container = document.querySelector(`[data-ev-images="${index}"]`);
+    if (!container) return;
+    const evt = eventsState[index];
+    const images = evt.images || [];
 
-    const slides = viewport.querySelectorAll(".album-slide");
-    const dots = document.querySelectorAll(".album-dot");
-    const counter = document.getElementById("albumCounter");
-    const prevBtn = document.getElementById("albumPrev");
-    const nextBtn = document.getElementById("albumNext");
-
-    let currentSlide = 0;
-    let touchStartX = 0, touchEndX = 0, isDragging = false;
-    const totalSlides = slides.length;
-    if (totalSlides === 0) return;
-
-    function goToSlide(index) {
-        if (index < 0) index = 0;
-        if (index >= totalSlides) index = totalSlides - 1;
-        slides.forEach((s, i) => s.classList.toggle("active", i === index));
-        dots.forEach((d, i) => d.classList.toggle("active", i === index));
-        if (counter) counter.textContent = `${index + 1} / ${totalSlides}`;
-        if (prevBtn) prevBtn.disabled = index === 0;
-        if (nextBtn) nextBtn.disabled = index === totalSlides - 1;
-        currentSlide = index;
+    if (images.length === 0) {
+        container.innerHTML = "<p style='color:#94a3b8;font-size:0.8rem;'>لا توجد صور محفوظة.</p>";
+        return;
     }
 
-    prevBtn?.addEventListener("click", () => goToSlide(currentSlide - 1));
-    nextBtn?.addEventListener("click", () => goToSlide(currentSlide + 1));
-    dots.forEach(dot => dot.addEventListener("click", () => goToSlide(parseInt(dot.dataset.dot))));
-
-    viewport.addEventListener("touchstart", (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        isDragging = true;
-    }, { passive: true });
-    viewport.addEventListener("touchmove", (e) => {
-        if (!isDragging) return;
-        touchEndX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    viewport.addEventListener("touchend", () => {
-        if (!isDragging) return;
-        const d = touchStartX - touchEndX;
-        if (Math.abs(d) >= 50) {
-            if (d > 50) goToSlide(currentSlide + 1);
-            else goToSlide(currentSlide - 1);
-        }
-        isDragging = false;
-    });
-
-    let mouseStartX = 0, isMouseDown = false;
-    viewport.addEventListener("mousedown", (e) => { mouseStartX = e.screenX; isMouseDown = true; });
-    viewport.addEventListener("mouseup", (e) => {
-        if (!isMouseDown) return;
-        const d = mouseStartX - e.screenX;
-        if (Math.abs(d) >= 50) {
-            if (d > 0) goToSlide(currentSlide + 1);
-            else goToSlide(currentSlide - 1);
-        }
-        isMouseDown = false;
-    });
-    viewport.addEventListener("mouseleave", () => { isMouseDown = false; });
-
-    document.addEventListener("keydown", (e) => {
-        if (lightbox?.classList.contains("active")) return;
-        if (e.key === "ArrowRight") goToSlide(currentSlide - 1);
-        if (e.key === "ArrowLeft") goToSlide(currentSlide + 1);
-    });
-
-    slides.forEach((slide, idx) => {
-        const img = slide.querySelector("img");
-        img?.addEventListener("click", () => {
-            if (isDragging) return;
-            openLightboxFromAlbum(idx);
+    container.innerHTML = "";
+    images.forEach((url, idx) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "image-locked";
+        wrapper.innerHTML = `<i class="fa-solid fa-image"></i>`;
+        wrapper.title = `صورة ${idx + 1} (مشفرة) — اضغط لحذفها`;
+        wrapper.style.cursor = "pointer";
+        wrapper.addEventListener("click", () => {
+            if (confirm(`حذف الصورة ${idx + 1}؟`)) {
+                evt.images = evt.images.filter(u => u !== url);
+                renderEventImages(index);
+            }
         });
-    });
-
-    goToSlide(0);
-}
-
-function openLightboxFromAlbum(index) {
-    const imgs = document.querySelectorAll(".album-slide img");
-    currentImages = Array.from(imgs).map(img => img.src);
-    currentImageIndex = index;
-    openLightbox();
-}
-
-// ============================================================
-// Lightbox
-// ============================================================
-function setupGallery() {
-    document.querySelectorAll(".page-gallery img").forEach(img => {
-        img.addEventListener("click", () => {
-            const src = img.src;
-            currentImageIndex = currentImages.indexOf(src);
-            if (currentImageIndex === -1) currentImageIndex = 0;
-            openLightbox();
-        });
+        container.appendChild(wrapper);
     });
 }
 
-function openLightbox() {
-    lightboxImg.src = currentImages[currentImageIndex];
-    lightboxCounter.textContent = `${currentImageIndex + 1} / ${currentImages.length}`;
-    lightbox.classList.add("active");
-    document.body.style.overflow = "hidden";
-}
+// ===== إضافة صفحة =====
+document.getElementById("btnAddEvent")?.addEventListener("click", () => {
+    eventsState.push(createEmptyEvent());
+    renderEvents();
+    const modalCard = document.querySelector(".modal-card");
+    if (modalCard) setTimeout(() => modalCard.scrollTop = modalCard.scrollHeight, 100);
+});
 
-function closeLightbox() {
-    lightbox.classList.remove("active");
-    document.body.style.overflow = "";
-}
+// ===== رفع الملفات =====
+document.getElementById("giftImages")?.addEventListener("change", (e) => {
+    giftNewImages = Array.from(e.target.files);
+    document.getElementById("giftImagesStatus").textContent =
+        giftNewImages.length ? `📎 ${giftNewImages.length} صورة جاهزة` : "";
+});
 
-function nextImage() {
-    currentImageIndex = (currentImageIndex + 1) % currentImages.length;
-    lightboxImg.src = currentImages[currentImageIndex];
-    lightboxCounter.textContent = `${currentImageIndex + 1} / ${currentImages.length}`;
-}
+document.getElementById("giftVideo")?.addEventListener("change", (e) => {
+    giftNewVideo = e.target.files[0] || null;
+    document.getElementById("giftVideoStatus").textContent =
+        giftNewVideo ? "📎 فيديو جديد جاهز" : "";
+});
 
-function prevImage() {
-    currentImageIndex = (currentImageIndex - 1 + currentImages.length) % currentImages.length;
-    lightboxImg.src = currentImages[currentImageIndex];
-    lightboxCounter.textContent = `${currentImageIndex + 1} / ${currentImages.length}`;
-}
+document.getElementById("bizLogo")?.addEventListener("change", (e) => {
+    bizNewLogo = e.target.files[0] || null;
+    document.getElementById("bizLogoStatus").textContent =
+        bizNewLogo ? "📎 شعار جديد جاهز" : "";
+});
 
-lightboxClose?.addEventListener("click", closeLightbox);
-lightboxNext?.addEventListener("click", nextImage);
-lightboxPrev?.addEventListener("click", prevImage);
-lightbox?.addEventListener("click", (e) => { if (e.target === lightbox) closeLightbox(); });
+document.getElementById("petPhoto")?.addEventListener("change", (e) => {
+    petNewPhoto = e.target.files[0] || null;
+    document.getElementById("petPhotoStatus").textContent =
+        petNewPhoto ? "📎 صورة جديدة جاهزة" : "";
+});
 
-document.addEventListener("keydown", (e) => {
-    if (!lightbox.classList.contains("active")) return;
-    if (e.key === "Escape") closeLightbox();
-    if (e.key === "ArrowLeft") nextImage();
-    if (e.key === "ArrowRight") prevImage();
+document.getElementById("editBgMusic")?.addEventListener("change", (e) => {
+    newBgMusicFile = e.target.files[0] || null;
+    document.getElementById("bgMusicStatus").textContent =
+        newBgMusicFile ? "📎 موسيقى جديدة جاهزة" : "";
+});
+
+// ===== إغلاق النافذة =====
+document.getElementById("btnCloseModal")?.addEventListener("click", () => {
+    document.getElementById("editModal").classList.remove("active");
 });
 
 // ============================================================
-// 🎵 الموسيقى
+// 💾 حفظ الكرت
 // ============================================================
-function startMusic(url) {
-    bgMusic.src = url;
-    bgMusic.volume = 0.5;
+document.getElementById("editCardForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-    const tryPlay = () => {
-        bgMusic.play()
-            .then(() => {
-                musicStarted = true;
-                musicToggle.classList.remove("visible");
-                musicToggle.classList.add("playing");
-            })
-            .catch(() => {
-                musicToggle.classList.add("visible");
-            });
-    };
+    if (!selectedType) { alert("الرجاء اختيار نوع الكرت أولاً"); return; }
 
-    tryPlay();
+    const cardId = document.getElementById("editCardId").value;
+    const btnSave = document.getElementById("btnSaveData");
+    const originalText = btnSave.innerHTML;
+    btnSave.disabled = true;
 
-    document.body.addEventListener("click", () => {
-        if (!musicStarted) {
-            bgMusic.play()
-                .then(() => {
-                    musicStarted = true;
-                    musicToggle.classList.remove("visible");
-                })
-                .catch(() => {});
-        }
-    }, { once: true });
-}
-
-musicToggle?.addEventListener("click", () => {
-    if (bgMusic.paused) {
-        bgMusic.play();
-        musicStarted = true;
-        musicToggle.classList.remove("visible");
-        musicToggle.classList.add("playing");
-    } else {
-        bgMusic.pause();
-        musicToggle.classList.add("visible");
-        musicToggle.classList.remove("playing");
-    }
-});
-
-// ============================================================
-// 🎨 تأثيرات
-// ============================================================
-function startEffect(type, color) {
-    const count = type === "hearts" ? 12 : 20;
-    for (let i = 0; i < count; i++) {
-        setTimeout(() => createParticle(type, color), i * 400);
-    }
-    setInterval(() => createParticle(type, color), 1500);
-}
-
-function createParticle(type, color) {
-    const el = document.createElement("div");
-
-    if (type === "hearts") {
-        el.className = "heart";
-        el.innerHTML = "❤";
-        el.style.left = Math.random() * 100 + "%";
-        el.style.color = Math.random() > 0.5 ? "#ec4899" : "#f43f5e";
-        el.style.animationDuration = (6 + Math.random() * 4) + "s";
-        el.style.fontSize = (14 + Math.random() * 14) + "px";
-    } else if (type === "confetti") {
-        el.className = "confetti";
-        el.style.left = Math.random() * 100 + "%";
-        el.style.background = pickColor(color);
-        el.style.animationDuration = (3 + Math.random() * 3) + "s";
-        el.style.width = (6 + Math.random() * 8) + "px";
-        el.style.height = (6 + Math.random() * 8) + "px";
-        el.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
-    }
-
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 8000);
-}
-
-function pickColor(base) {
-    const colors = [base, "#e2b714", "#f43f5e", "#3b82f6", "#10b981", "#a855f7"];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-
-// ============================================================
-// دوال مساعدة
-// ============================================================
-function formatDate(dateStr) {
     try {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-    } catch { return dateStr; }
-}
+        const cardRef = doc(db, "cards", cardId);
+        const cardSnap = await getDoc(cardRef);
+        if (!cardSnap.exists() || cardSnap.data().ownerId !== currentUser.uid) {
+            throw new Error("غير مصرح لك بتعديل هذا الكرت");
+        }
 
-function escapeHtml(text) {
-    if (!text) return "";
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-}
+        const oldData = cardSnap.data();
 
-// ===== بدء التشغيل =====
-init();
+        if (oldData.salt && !currentEncryptionKey) {
+            throw new Error("يجب إدخال الإجابة السرية أولاً");
+        }
+
+        const updatePayload = {
+            type: selectedType.id,
+            protected: selectedType.protected === true,
+            updatedAt: serverTimestamp()
+        };
+
+        // ===== الموسيقى =====
+        let bgMusicUrl = oldData.bgMusicUrl || "";
+        if (newBgMusicFile) {
+            btnSave.innerHTML = "🎵 جاري رفع الموسيقى...";
+            bgMusicUrl = await uploadToCloudinary(newBgMusicFile, "auto", (p) => {
+                btnSave.innerHTML = `🎵 رفع الموسيقى — ${p}%`;
+            });
+        }
+        updatePayload.bgMusicUrl = bgMusicUrl;
+
+        // ============================================================
+        // 🎁 كرت هدية
+        // ============================================================
+        if (selectedType.id === "gift") {
+            updatePayload.title = document.getElementById("giftTitle").value.trim();
+
+            const messageText = document.getElementById("giftMessage").value.trim();
+            if (messageText) {
+                btnSave.innerHTML = "🔐 جاري تشفير الرسالة...";
+                updatePayload.message = await encryptText(messageText, currentEncryptionKey);
+            } else {
+                updatePayload.message = "";
+            }
+
+            let finalImages = giftCurrentImages.filter(url => !giftImagesToDelete.includes(url));
+            if (giftNewImages.length > 0) {
+                for (let i = 0; i < giftNewImages.length; i++) {
+                    btnSave.innerHTML = `📸 ضغط الصورة ${i + 1}/${giftNewImages.length}...`;
+                    const compressed = await compressImage(giftNewImages[i]);
+
+                    btnSave.innerHTML = `🔐 تشفير الصورة ${i + 1}/${giftNewImages.length}...`;
+                    const { encryptedBlob, iv } = await encryptFile(compressed, currentEncryptionKey);
+
+                    btnSave.innerHTML = `📤 رفع الصورة ${i + 1}/${giftNewImages.length}...`;
+                    const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
+                        btnSave.innerHTML = `📤 صورة ${i + 1}/${giftNewImages.length} — ${p}%`;
+                    });
+
+                    finalImages.push({
+                        url: url,
+                        iv: bytesToBase64Url(iv),
+                        encrypted: true,
+                        mimeType: "image/jpeg"
+                    });
+                }
+            }
+            updatePayload.images = finalImages;
+
+            let videoData = oldData.video || "";
+            if (giftNewVideo) {
+                btnSave.innerHTML = "🔐 جاري تشفير الفيديو...";
+                const { encryptedBlob, iv } = await encryptFile(giftNewVideo, currentEncryptionKey);
+
+                btnSave.innerHTML = "📤 جاري رفع الفيديو...";
+                const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
+                    btnSave.innerHTML = `🎬 رفع الفيديو — ${p}%`;
+                });
+
+                videoData = {
+                    url: url,
+                    iv: bytesToBase64Url(iv),
+                    encrypted: true,
+                    mimeType: "video/mp4"
+                };
+            }
+            updatePayload.video = videoData;
+            updatePayload.videoUrl = deleteField();
+        }
+
+        // ============================================================
+        // 📖 كتاب ذكريات
+        // ============================================================
+        if (selectedType.id === "memory_book") {
+            updatePayload.title = document.getElementById("bookTitle").value.trim();
+
+            const finalEvents = [];
+            for (let i = 0; i < eventsState.length; i++) {
+                const evt = eventsState[i];
+                btnSave.innerHTML = `⏳ معالجة الصفحة ${i + 1}/${eventsState.length}...`;
+
+                const processedEvent = {
+                    id: evt.id,
+                    emoji: evt.emoji || "📌",
+                    title: evt.title || "",
+                    date: evt.date || "",
+                    images: [...(evt.images || [])],
+                    video: evt.video || ""
+                };
+
+                if (evt.message && typeof evt.message === "string" && evt.message.trim()) {
+                    btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الرسالة...`;
+                    processedEvent.message = await encryptText(evt.message.trim(), currentEncryptionKey);
+                } else if (evt.message && typeof evt.message === "object") {
+                    processedEvent.message = evt.message;
+                } else {
+                    processedEvent.message = "";
+                }
+
+                if (evt._newImages && evt._newImages.length > 0) {
+                    for (let j = 0; j < evt._newImages.length; j++) {
+                        btnSave.innerHTML = `📸 صفحة ${i + 1}: ضغط الصورة ${j + 1}...`;
+                        const compressed = await compressImage(evt._newImages[j]);
+
+                        btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الصورة ${j + 1}...`;
+                        const { encryptedBlob, iv } = await encryptFile(compressed, currentEncryptionKey);
+
+                        btnSave.innerHTML = `📤 صفحة ${i + 1}: رفع الصورة ${j + 1}...`;
+                        const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
+                            btnSave.innerHTML = `📤 صفحة ${i + 1} - صورة ${j + 1} — ${p}%`;
+                        });
+
+                        processedEvent.images.push({
+                            url: url,
+                            iv: bytesToBase64Url(iv),
+                            encrypted: true,
+                            mimeType: "image/jpeg"
+                        });
+                    }
+                }
+
+                if (evt._newVideo) {
+                    btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الفيديو...`;
+                    const { encryptedBlob, iv } = await encryptFile(evt._newVideo, currentEncryptionKey);
+
+                    btnSave.innerHTML = `📤 صفحة ${i + 1}: رفع الفيديو...`;
+                    const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
+                        btnSave.innerHTML = `📤 صفحة ${i + 1} - فيديو — ${p}%`;
+                    });
+
+                    processedEvent.video = {
+                        url: url,
+                        iv: bytesToBase64Url(iv),
+                        encrypted: true,
+                        mimeType: "video/mp4"
+                    };
+                }
+
+                finalEvents.push(processedEvent);
+            }
+            updatePayload.events = finalEvents;
+        }
+
+        // ============================================================
+        // 💼 بطاقة عمل (عامة)
+        // ============================================================
+        if (selectedType.id === "business_card") {
+            updatePayload.name = document.getElementById("bizName").value.trim();
+            updatePayload.jobTitle = document.getElementById("bizJobTitle").value.trim();
+            updatePayload.company = document.getElementById("bizCompany").value.trim();
+            updatePayload.bio = document.getElementById("bizBio").value.trim();
+            updatePayload.services = document.getElementById("bizServices").value.trim();
+            updatePayload.email = document.getElementById("bizEmail").value.trim();
+            updatePayload.address = document.getElementById("bizAddress").value.trim();
+            updatePayload.facebook = document.getElementById("bizFacebook").value.trim();
+            updatePayload.linkedin = document.getElementById("bizLinkedin").value.trim();
+
+            updatePayload.instagram = bizInstagramList.map(v => v.trim()).filter(v => v !== "");
+            updatePayload.phone = bizPhoneList.map(v => v.trim()).filter(v => v !== "");
+            updatePayload.website = bizWebsiteList.map(v => v.trim()).filter(v => v !== "");
+
+            updatePayload.title = updatePayload.name || updatePayload.company || "بطاقة عمل";
+
+            let logoUrl = oldData.logoUrl || "";
+            if (bizNewLogo) {
+                btnSave.innerHTML = "📤 رفع الشعار...";
+                const compressed = await compressImage(bizNewLogo);
+                logoUrl = await uploadToCloudinary(compressed, "image", (p) => {
+                    btnSave.innerHTML = `🖼️ رفع الشعار — ${p}%`;
+                });
+            }
+            updatePayload.logoUrl = logoUrl;
+            updatePayload.logo = "";
+        }
+
+        // ============================================================
+        // 🐾 بطاقة حيوانات (عامة)
+        // ============================================================
+        if (selectedType.id === "pet_card") {
+            updatePayload.petName = document.getElementById("petName").value.trim();
+            updatePayload.petType = document.getElementById("petType").value;
+            updatePayload.petBreed = document.getElementById("petBreed").value.trim();
+            updatePayload.petAge = document.getElementById("petAge").value.trim();
+            updatePayload.petWeight = document.getElementById("petWeight").value.trim();
+            updatePayload.petColor = document.getElementById("petColor").value.trim();
+            updatePayload.petNotes = document.getElementById("petNotes").value.trim();
+            updatePayload.petVaccinations = document.getElementById("petVaccinations").value;
+            updatePayload.petOwnerName = document.getElementById("petOwnerName").value.trim();
+            updatePayload.petOwnerPhone = document.getElementById("petOwnerPhone").value.trim();
+            updatePayload.petAddress = document.getElementById("petAddress").value.trim();
+
+            updatePayload.title = updatePayload.petName || "بطاقة حيوان";
+
+            let petPhotoUrl = petCurrentPhoto;
+            if (petNewPhoto) {
+                btnSave.innerHTML = "📤 رفع صورة الحيوان...";
+                const compressed = await compressImage(petNewPhoto);
+                petPhotoUrl = await uploadToCloudinary(compressed, "image", (p) => {
+                    btnSave.innerHTML = `🐾 رفع الصورة — ${p}%`;
+                });
+            }
+            updatePayload.petPhoto = petPhotoUrl;
+        }
+
+        btnSave.innerHTML = "💾 جاري الحفظ...";
+        await updateDoc(cardRef, updatePayload);
+
+        alert("✅ تم حفظ الكرت بنجاح!");
+        document.getElementById("editModal").classList.remove("active");
+        await loadUserCards(currentUser.uid);
+
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطأ: " + error.message);
+    } finally {
+        btnSave.innerHTML = originalText;
+        btnSave.disabled = false;
+    }
+});
+
+console.log("✅ customer-dashboard.js جاهز (نظام السؤال السري)");
