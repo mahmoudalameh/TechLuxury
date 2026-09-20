@@ -164,7 +164,7 @@ let newBgMusicFile = null;
 let petNewPhoto = null;
 let petCurrentPhoto = "";
 
-// 🔐 جديد: كلمة المرور (الإجابة السرية)
+// 🔐 المفتاح الحالي (يُشتق من الإجابة السرية)
 let currentEncryptionKey = null;
 
 // ===== دوال مساعدة =====
@@ -190,6 +190,7 @@ function toArray(value) {
     return [];
 }
 
+// ===== ✅ دالة escapeHtml (لمنع XSS) =====
 function escapeHtml(text) {
     if (text === null || text === undefined) return "";
     const div = document.createElement("div");
@@ -198,120 +199,28 @@ function escapeHtml(text) {
 }
 
 // ============================================================
-// 🔐 شاشة السؤال السري + الإجابة (بدل كلمة المرور)
+// 🔐 Modal فك التشفير (يظهر فقط عند فتح كرت محمي للتعديل)
 // ============================================================
-function showSecurityScreen(cardId, salt, mode, existingQuestion, onSuccess) {
-    // mode: "create" (إنشاء جديد) | "unlock" (فتح موجود)
-    const modal = document.getElementById("passwordModal");
-    const title = document.getElementById("passwordModalTitle");
-    const desc = document.getElementById("passwordModalDesc");
-    const input = document.getElementById("passwordInput");
-    const confirmGroup = document.getElementById("confirmPasswordGroup");
-    const confirmInput = document.getElementById("confirmPasswordInput");
-    const errorMsg = document.getElementById("passwordError");
-    const btn = document.getElementById("btnPasswordConfirm");
-    const btnClose = document.getElementById("btnClosePasswordModal");
+function showUnlockModal(cardId, card, onSuccess) {
+    const modal = document.getElementById("unlockModal");
+    const questionText = document.getElementById("unlockQuestionText");
+    const input = document.getElementById("unlockAnswerInput");
+    const errorMsg = document.getElementById("unlockError");
+    const btn = document.getElementById("btnUnlockConfirm");
+    const btnClose = document.getElementById("btnCloseUnlockModal");
 
-    // إخفاء الحقول
+    questionText.textContent = card.securityQuestion || "غير محدد";
     input.value = "";
-    confirmInput.value = "";
     errorMsg.style.display = "none";
     btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> تأكيد';
-
-    // ✅ إضافة حقل السؤال ديناميكياً (إذا لم يكن موجوداً)
-    let questionGroup = document.getElementById("securityQuestionGroup");
-    if (!questionGroup) {
-        questionGroup = document.createElement("div");
-        questionGroup.id = "securityQuestionGroup";
-        questionGroup.className = "form-group";
-        questionGroup.innerHTML = `
-            <label>❓ السؤال السري</label>
-            <input type="text" id="securityQuestionInput" placeholder="مثال: ما اسم أول حيوان أليف لك؟" maxlength="200">
-            <small style="color:#94a3b8;font-size:0.75rem;display:block;margin-top:4px;">
-                سيُعرض هذا السؤال للزائر عند فتح الكرت.
-            </small>
-        `;
-        // ضعه قبل حقل كلمة المرور
-        const passwordGroup = input.closest(".form-group");
-        passwordGroup.parentNode.insertBefore(questionGroup, passwordGroup);
-    }
-
-    // تحديث عنوان حقل الإجابة
-    const passwordLabel = input.previousElementSibling;
-    if (passwordLabel && passwordLabel.tagName === "LABEL") {
-        passwordLabel.textContent = "🔑 الإجابة السرية";
-    }
-    input.placeholder = "أدخل الإجابة...";
-    input.type = "text"; // الإجابات نصوص عادة
-
-    if (mode === "create") {
-        title.innerHTML = `<i class="fa-solid fa-shield-halved"></i> حماية كرتك`;
-        desc.textContent = "اختر سؤالاً سرياً وإجابته. سيُعرض السؤال للزائر عند فتح الكرت، ولن تُخزَّن الإجابة (تُستخدم فقط كمفتاح تشفير).";
-        
-        // إظهار حقل السؤال + التأكيد
-        questionGroup.style.display = "block";
-        confirmGroup.style.display = "block";
-        
-        // تحديث label التأكيد
-        const confirmLabel = confirmInput.previousElementSibling;
-        if (confirmLabel && confirmLabel.tagName === "LABEL") {
-            confirmLabel.textContent = "🔁 تأكيد الإجابة السرية";
-        }
-        confirmInput.placeholder = "أعد إدخال الإجابة...";
-        confirmInput.type = "text";
-    } else {
-        title.innerHTML = `<i class="fa-solid fa-lock"></i> الكرت محمي`;
-        desc.textContent = "أجب على السؤال التالي لفتح الكرت.";
-        
-        // إخفاء حقل السؤال (يُعرض السؤال في الوصف)
-        questionGroup.style.display = "none";
-        confirmGroup.style.display = "none";
-        
-        // عرض السؤال بشكل بارز
-        const existingDesc = desc.textContent;
-        desc.innerHTML = `
-            ${existingDesc}
-            <div style="background:#0f172a;border:1px solid #2e374a;border-radius:10px;padding:15px;margin-top:15px;text-align:right;">
-                <div style="color:#94a3b8;font-size:0.75rem;margin-bottom:6px;">السؤال:</div>
-                <div style="color:#e2b714;font-weight:600;font-size:1rem;">${escapeHtml(existingQuestion || "غير محدد")}</div>
-            </div>
-        `;
-    }
+    btn.innerHTML = '<i class="fa-solid fa-unlock"></i> فتح الكرت';
 
     modal.classList.add("active");
 
     const handleConfirm = async () => {
         const answer = input.value.trim();
-        let question = "";
-
-        if (mode === "create") {
-            question = document.getElementById("securityQuestionInput").value.trim();
-            
-            if (!question) {
-                errorMsg.textContent = "الرجاء إدخال السؤال السري";
-                errorMsg.style.display = "block";
-                return;
-            }
-            if (question.length < 5) {
-                errorMsg.textContent = "السؤال قصير جداً";
-                errorMsg.style.display = "block";
-                return;
-            }
-        }
-
         if (!answer) {
-            errorMsg.textContent = "الرجاء إدخال الإجابة السرية";
-            errorMsg.style.display = "block";
-            return;
-        }
-        if (answer.length < 2) {
-            errorMsg.textContent = "الإجابة قصيرة جداً";
-            errorMsg.style.display = "block";
-            return;
-        }
-        if (mode === "create" && answer !== confirmInput.value.trim()) {
-            errorMsg.textContent = "الإجابتان غير متطابقتين";
+            errorMsg.textContent = "الرجاء إدخال الإجابة";
             errorMsg.style.display = "block";
             return;
         }
@@ -320,26 +229,66 @@ function showSecurityScreen(cardId, salt, mode, existingQuestion, onSuccess) {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...';
 
         try {
-            // ✅ الإجابة = "كلمة المرور" لاشتقاق المفتاح
+            const salt = base64UrlToBytes(card.salt);
             const key = await deriveFinalKey(answer, null, salt);
-            currentEncryptionKey = key;
-            sessionStorage.setItem(`enc_key_${cardId}`, "cached");
 
-            modal.classList.remove("active");
-            onSuccess(key, question);
+            // اختبر فك التشفير
+            let testPassed = false;
+
+            if (card.message && typeof card.message === "object" && card.message.ciphertext) {
+                try {
+                    await decryptText(card.message.ciphertext, card.message.iv, key);
+                    testPassed = true;
+                } catch (e) {}
+            }
+
+            if (!testPassed && card.images && card.images.length > 0 && typeof card.images[0] === "object") {
+                try {
+                    const imgData = card.images[0];
+                    const res = await fetch(imgData.url);
+                    const blob = await res.blob();
+                    await decryptFile(blob, base64UrlToBytes(imgData.iv), key);
+                    testPassed = true;
+                } catch (e) {}
+            }
+
+            if (!testPassed && card.events && card.events.length > 0 && card.events[0].message && typeof card.events[0].message === "object") {
+                try {
+                    await decryptText(card.events[0].message.ciphertext, card.events[0].message.iv, key);
+                    testPassed = true;
+                } catch (e) {}
+            }
+
+            if (!testPassed && (!card.message || typeof card.message === "string")) {
+                testPassed = true;
+            }
+
+            if (testPassed) {
+                currentEncryptionKey = key;
+                sessionStorage.setItem(`enc_key_${cardId}`, "cached");
+                modal.classList.remove("active");
+                onSuccess(key);
+            } else {
+                errorMsg.textContent = "❌ الإجابة غير صحيحة";
+                errorMsg.style.display = "block";
+                input.value = "";
+                input.focus();
+            }
         } catch (err) {
             console.error(err);
-            errorMsg.textContent = "حدث خطأ، حاول مرة أخرى";
+            errorMsg.textContent = "❌ الإجابة غير صحيحة";
             errorMsg.style.display = "block";
+            input.value = "";
+            input.focus();
+        } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> تأكيد';
+            btn.innerHTML = '<i class="fa-solid fa-unlock"></i> فتح الكرت';
         }
     };
 
     btn.onclick = handleConfirm;
     btnClose.onclick = () => modal.classList.remove("active");
     input.onkeypress = (e) => { if (e.key === "Enter") handleConfirm(); };
-    confirmInput.onkeypress = (e) => { if (e.key === "Enter") handleConfirm(); };
     setTimeout(() => input.focus(), 100);
 }
 
@@ -467,7 +416,7 @@ async function loadUserCards(uid) {
             cardEl.innerHTML = `
                 ${badge}
                 <div>
-                    <h3>${card.title || "بدون عنوان"}</h3>
+                    <h3>${escapeHtml(card.title) || "بدون عنوان"}</h3>
                     <p>رمز الكرت: <strong>${cardId}</strong> ${lockIcon}</p>
                 </div>
                 <button class="btn-edit-memory" data-id="${cardId}">
@@ -487,22 +436,24 @@ async function loadUserCards(uid) {
 }
 
 // ============================================================
-// 🔐 طلب الإجابة قبل التعديل
+// 🔐 طلب الإجابة قبل التعديل (فقط للأنواع المحمية)
 // ============================================================
 async function requestEditWithPassword(cardId, card) {
+    // ✅ إذا الكرت ليس محمياً → افتح مباشرة
     if (!card.salt || !card.protected) {
         currentEncryptionKey = null;
         openEditModal(cardId, card);
         return;
     }
 
+    // ✅ إذا المفتاح موجود في الجلسة → افتح مباشرة
     if (currentEncryptionKey && sessionStorage.getItem(`enc_key_${cardId}`)) {
         openEditModal(cardId, card);
         return;
     }
 
-    const salt = base64UrlToBytes(card.salt);
-    showSecurityScreen(cardId, salt, "unlock", card.securityQuestion, async (key) => {
+    // ✅ الكرت محمي والمفتاح غير موجود → اطلب الإجابة (Modal)
+    showUnlockModal(cardId, card, (key) => {
         openEditModal(cardId, card);
     });
 }
@@ -606,7 +557,8 @@ function resetFormState() {
         "bizAddress", "bizFacebook", "bizLinkedin",
         "petName", "petType", "petBreed", "petAge", "petWeight",
         "petColor", "petNotes", "petVaccinations",
-        "petOwnerName", "petOwnerPhone", "petAddress"
+        "petOwnerName", "petOwnerPhone", "petAddress",
+        "securityQuestionInput", "securityAnswerInput", "securityAnswerConfirm"
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -658,39 +610,6 @@ document.getElementById("btnConfirmType")?.addEventListener("click", async () =>
         alert("يرجى اختيار نوع الكرت أولاً");
         return;
     }
-
-    // إذا النوع محمي → اطلب السؤال + الإجابة
-    if (selectedType.protected && !currentEncryptionKey) {
-        const cardId = document.getElementById("editCardId").value;
-        const cardRef = doc(db, "cards", cardId);
-        const cardSnap = await getDoc(cardRef);
-        const cardData = cardSnap.data();
-
-        if (!cardData.salt) {
-            const newSalt = generateSalt();
-            const saltB64 = bytesToBase64Url(newSalt);
-
-            showSecurityScreen(cardId, newSalt, "create", null, async (key, question) => {
-                await updateDoc(cardRef, {
-                    salt: saltB64,
-                    encryptionVersion: 1,
-                    securityQuestion: question,
-                    updatedAt: serverTimestamp()
-                });
-                currentCard.salt = saltB64;
-                currentCard.securityQuestion = question;
-                await showCardFields(currentCard);
-            });
-            return;
-        } else {
-            const salt = base64UrlToBytes(cardData.salt);
-            showSecurityScreen(cardId, salt, "unlock", cardData.securityQuestion, async (key) => {
-                await showCardFields(currentCard);
-            });
-            return;
-        }
-    }
-
     await showCardFields(currentCard || {});
 });
 
@@ -710,6 +629,20 @@ async function showCardFields(card) {
     hide(document.getElementById("bookFields"));
     hide(document.getElementById("businessFields"));
     hide(document.getElementById("petFields"));
+
+    // ✅ قسم الحماية (يظهر فقط للأنواع المحمية)
+    const protectionSection = document.getElementById("protectionSection");
+    if (selectedType.protected) {
+        show(protectionSection);
+
+        // إذا كان الكرت موجود وله سؤال محفوظ → املأ الحقل
+        if (card.securityQuestion) {
+            document.getElementById("securityQuestionInput").value = card.securityQuestion;
+        }
+        // لا نملأ الإجابة (لأنها غير مخزنة)
+    } else {
+        hide(protectionSection);
+    }
 
     // ========== كرت هدية ==========
     if (selectedType.id === "gift") {
@@ -846,7 +779,7 @@ function renderSocialList(containerId, list, placeholder, iconClass, iconColor) 
         item.className = "social-item";
         item.innerHTML = `
             <i class="${iconClass}" style="color:${iconColor};font-size:1.2rem;"></i>
-            <input type="text" placeholder="${placeholder}" value="${value || ""}" data-index="${index}">
+            <input type="text" placeholder="${placeholder}" value="${escapeHtml(value || "")}" data-index="${index}">
             <button type="button" class="btn-remove-social" data-index="${index}">
                 <i class="fa-solid fa-trash"></i>
             </button>
@@ -956,479 +889,4 @@ function renderPetPhoto() {
         container.innerHTML = "<p style='color:#94a3b8;font-size:0.85rem;'>لا توجد صورة محفوظة.</p>";
         return;
     }
-    container.innerHTML = `
-        <div class="image-thumb">
-            <img src="${petCurrentPhoto}" style="width:100px;height:100px;">
-            <button type="button" id="removePetPhoto">×</button>
-        </div>
-    `;
-    document.getElementById("removePetPhoto").addEventListener("click", () => {
-        if (confirm("حذف صورة الحيوان؟")) {
-            petCurrentPhoto = "";
-            renderPetPhoto();
-        }
-    });
-}
-
-// ===== إنشاء صفحة فارغة =====
-function createEmptyEvent() {
-    return {
-        id: generateId(),
-        emoji: "📌",
-        title: "",
-        date: "",
-        message: "",
-        images: [],
-        video: "",
-        _newImages: [],
-        _newVideo: null
-    };
-}
-
-// ===== خيارات الإيموجي =====
-const EMOJI_OPTIONS = ["❤️", "🎂", "✈️", "🎓", "💍", "🌟", "🎉", "📸", "🎁", "🏖️", "🎊", "🌸", "👶", "🏆", "☕", "🎵"];
-
-// ===== عرض صفحات كتاب الذكريات =====
-function renderEvents() {
-    const eventsListEl = document.getElementById("eventsList");
-    if (!eventsListEl) return;
-    eventsListEl.innerHTML = "";
-
-    eventsState.forEach((evt, index) => {
-        const el = document.createElement("div");
-        el.className = "event-card";
-
-        el.innerHTML = `
-            <div class="event-card-header">
-                <h4>
-                    <span class="event-number">صفحة ${index + 1}</span>
-                    ${evt.emoji || "📌"} ${evt.title || "بدون عنوان"}
-                </h4>
-                <button type="button" class="btn-remove-event" data-index="${index}">
-                    <i class="fa-solid fa-trash"></i> حذف
-                </button>
-            </div>
-
-            <div class="form-group">
-                <label>اختر إيموجي للصفحة</label>
-                <div class="emoji-picker" data-index="${index}">
-                    ${EMOJI_OPTIONS.map(e =>
-                        `<button type="button" data-emoji="${e}" class="${e === evt.emoji ? "selected" : ""}">${e}</button>`
-                    ).join("")}
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>عنوان الصفحة</label>
-                <input type="text" class="evt-title" data-field="title" value="${evt.title || ""}" placeholder="مثال: أول لقاء">
-            </div>
-
-            <div class="form-group">
-                <label>التاريخ (اختياري)</label>
-                <input type="date" class="evt-date" data-field="date" value="${evt.date || ""}">
-            </div>
-
-            <div class="form-group">
-                <label>الرسالة / الذكرى 🔐</label>
-                <textarea class="evt-message" data-field="message" rows="3" placeholder="اكتب ما حدث...">${evt.message || ""}</textarea>
-            </div>
-
-            <div class="form-group">
-                <label>📸 الصور المحفوظة (${(evt.images || []).length})</label>
-                <div class="current-images-container" data-ev-images="${index}"></div>
-            </div>
-
-            <div class="form-group">
-                <label>📤 إضافة صور جديدة</label>
-                <input type="file" class="evt-images" accept="image/*" multiple data-index="${index}">
-                <span class="file-status evt-images-status" data-index="${index}"></span>
-            </div>
-
-            <div class="form-group">
-                <label>🎬 ${evt.video ? "استبدال الفيديو الحالي" : "فيديو الصفحة (اختياري)"}</label>
-                <input type="file" class="evt-video" accept="video/*" data-index="${index}">
-                <span class="file-status evt-video-status" data-index="${index}">
-                    ${evt.video ? "✅ يوجد فيديو محفوظ" : ""}
-                </span>
-            </div>
-        `;
-
-        eventsListEl.appendChild(el);
-
-        el.querySelectorAll(".emoji-picker button").forEach(btn => {
-            btn.addEventListener("click", () => {
-                eventsState[index].emoji = btn.dataset.emoji;
-                el.querySelectorAll(".emoji-picker button").forEach(b => b.classList.remove("selected"));
-                btn.classList.add("selected");
-                updateEventHeader(el, index);
-            });
-        });
-
-        el.querySelectorAll("[data-field]").forEach(input => {
-            input.addEventListener("input", (e) => {
-                eventsState[index][e.target.dataset.field] = e.target.value;
-                if (e.target.dataset.field === "title") updateEventHeader(el, index);
-            });
-        });
-
-        el.querySelector(".btn-remove-event").addEventListener("click", () => {
-            if (eventsState.length === 1) {
-                alert("يجب أن يحتوي الكتاب على صفحة واحدة على الأقل");
-                return;
-            }
-            if (confirm("حذف هذه الصفحة؟")) {
-                eventsState.splice(index, 1);
-                renderEvents();
-            }
-        });
-
-        renderEventImages(index);
-
-        el.querySelector(".evt-images").addEventListener("change", (e) => {
-            eventsState[index]._newImages = Array.from(e.target.files);
-            const status = el.querySelector(`.evt-images-status[data-index="${index}"]`);
-            if (status) status.textContent = `📎 ${e.target.files.length} صورة جديدة جاهزة`;
-        });
-
-        el.querySelector(".evt-video").addEventListener("change", (e) => {
-            eventsState[index]._newVideo = e.target.files[0] || null;
-            const status = el.querySelector(`.evt-video-status[data-index="${index}"]`);
-            if (status) status.textContent = e.target.files[0]
-                ? "📎 فيديو جديد جاهز"
-                : (eventsState[index].video ? "✅ يوجد فيديو محفوظ" : "");
-        });
-    });
-}
-
-function updateEventHeader(el, index) {
-    const evt = eventsState[index];
-    el.querySelector("h4").innerHTML = `
-        <span class="event-number">صفحة ${index + 1}</span>
-        ${evt.emoji || "📌"} ${evt.title || "بدون عنوان"}
-    `;
-}
-
-function renderEventImages(index) {
-    const container = document.querySelector(`[data-ev-images="${index}"]`);
-    if (!container) return;
-    const evt = eventsState[index];
-    const images = evt.images || [];
-
-    if (images.length === 0) {
-        container.innerHTML = "<p style='color:#94a3b8;font-size:0.8rem;'>لا توجد صور محفوظة.</p>";
-        return;
-    }
-
-    container.innerHTML = "";
-    images.forEach((url, idx) => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "image-locked";
-        wrapper.innerHTML = `<i class="fa-solid fa-image"></i>`;
-        wrapper.title = `صورة ${idx + 1} (مشفرة) — اضغط لحذفها`;
-        wrapper.style.cursor = "pointer";
-        wrapper.addEventListener("click", () => {
-            if (confirm(`حذف الصورة ${idx + 1}؟`)) {
-                evt.images = evt.images.filter(u => u !== url);
-                renderEventImages(index);
-            }
-        });
-        container.appendChild(wrapper);
-    });
-}
-
-// ===== إضافة صفحة =====
-document.getElementById("btnAddEvent")?.addEventListener("click", () => {
-    eventsState.push(createEmptyEvent());
-    renderEvents();
-    const modalCard = document.querySelector(".modal-card");
-    if (modalCard) setTimeout(() => modalCard.scrollTop = modalCard.scrollHeight, 100);
-});
-
-// ===== رفع الملفات =====
-document.getElementById("giftImages")?.addEventListener("change", (e) => {
-    giftNewImages = Array.from(e.target.files);
-    document.getElementById("giftImagesStatus").textContent =
-        giftNewImages.length ? `📎 ${giftNewImages.length} صورة جاهزة` : "";
-});
-
-document.getElementById("giftVideo")?.addEventListener("change", (e) => {
-    giftNewVideo = e.target.files[0] || null;
-    document.getElementById("giftVideoStatus").textContent =
-        giftNewVideo ? "📎 فيديو جديد جاهز" : "";
-});
-
-document.getElementById("bizLogo")?.addEventListener("change", (e) => {
-    bizNewLogo = e.target.files[0] || null;
-    document.getElementById("bizLogoStatus").textContent =
-        bizNewLogo ? "📎 شعار جديد جاهز" : "";
-});
-
-document.getElementById("petPhoto")?.addEventListener("change", (e) => {
-    petNewPhoto = e.target.files[0] || null;
-    document.getElementById("petPhotoStatus").textContent =
-        petNewPhoto ? "📎 صورة جديدة جاهزة" : "";
-});
-
-document.getElementById("editBgMusic")?.addEventListener("change", (e) => {
-    newBgMusicFile = e.target.files[0] || null;
-    document.getElementById("bgMusicStatus").textContent =
-        newBgMusicFile ? "📎 موسيقى جديدة جاهزة" : "";
-});
-
-// ===== إغلاق النافذة =====
-document.getElementById("btnCloseModal")?.addEventListener("click", () => {
-    document.getElementById("editModal").classList.remove("active");
-});
-
-// ============================================================
-// 💾 حفظ الكرت
-// ============================================================
-document.getElementById("editCardForm")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    if (!selectedType) { alert("الرجاء اختيار نوع الكرت أولاً"); return; }
-
-    const cardId = document.getElementById("editCardId").value;
-    const btnSave = document.getElementById("btnSaveData");
-    const originalText = btnSave.innerHTML;
-    btnSave.disabled = true;
-
-    try {
-        const cardRef = doc(db, "cards", cardId);
-        const cardSnap = await getDoc(cardRef);
-        if (!cardSnap.exists() || cardSnap.data().ownerId !== currentUser.uid) {
-            throw new Error("غير مصرح لك بتعديل هذا الكرت");
-        }
-
-        const oldData = cardSnap.data();
-
-        if (oldData.salt && !currentEncryptionKey) {
-            throw new Error("يجب إدخال الإجابة السرية أولاً");
-        }
-
-        const updatePayload = {
-            type: selectedType.id,
-            protected: selectedType.protected === true,
-            updatedAt: serverTimestamp()
-        };
-
-        // ===== الموسيقى =====
-        let bgMusicUrl = oldData.bgMusicUrl || "";
-        if (newBgMusicFile) {
-            btnSave.innerHTML = "🎵 جاري رفع الموسيقى...";
-            bgMusicUrl = await uploadToCloudinary(newBgMusicFile, "auto", (p) => {
-                btnSave.innerHTML = `🎵 رفع الموسيقى — ${p}%`;
-            });
-        }
-        updatePayload.bgMusicUrl = bgMusicUrl;
-
-        // ============================================================
-        // 🎁 كرت هدية
-        // ============================================================
-        if (selectedType.id === "gift") {
-            updatePayload.title = document.getElementById("giftTitle").value.trim();
-
-            const messageText = document.getElementById("giftMessage").value.trim();
-            if (messageText) {
-                btnSave.innerHTML = "🔐 جاري تشفير الرسالة...";
-                updatePayload.message = await encryptText(messageText, currentEncryptionKey);
-            } else {
-                updatePayload.message = "";
-            }
-
-            let finalImages = giftCurrentImages.filter(url => !giftImagesToDelete.includes(url));
-            if (giftNewImages.length > 0) {
-                for (let i = 0; i < giftNewImages.length; i++) {
-                    btnSave.innerHTML = `📸 ضغط الصورة ${i + 1}/${giftNewImages.length}...`;
-                    const compressed = await compressImage(giftNewImages[i]);
-
-                    btnSave.innerHTML = `🔐 تشفير الصورة ${i + 1}/${giftNewImages.length}...`;
-                    const { encryptedBlob, iv } = await encryptFile(compressed, currentEncryptionKey);
-
-                    btnSave.innerHTML = `📤 رفع الصورة ${i + 1}/${giftNewImages.length}...`;
-                    const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
-                        btnSave.innerHTML = `📤 صورة ${i + 1}/${giftNewImages.length} — ${p}%`;
-                    });
-
-                    finalImages.push({
-                        url: url,
-                        iv: bytesToBase64Url(iv),
-                        encrypted: true,
-                        mimeType: "image/jpeg"
-                    });
-                }
-            }
-            updatePayload.images = finalImages;
-
-            let videoData = oldData.video || "";
-            if (giftNewVideo) {
-                btnSave.innerHTML = "🔐 جاري تشفير الفيديو...";
-                const { encryptedBlob, iv } = await encryptFile(giftNewVideo, currentEncryptionKey);
-
-                btnSave.innerHTML = "📤 جاري رفع الفيديو...";
-                const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
-                    btnSave.innerHTML = `🎬 رفع الفيديو — ${p}%`;
-                });
-
-                videoData = {
-                    url: url,
-                    iv: bytesToBase64Url(iv),
-                    encrypted: true,
-                    mimeType: "video/mp4"
-                };
-            }
-            updatePayload.video = videoData;
-            updatePayload.videoUrl = deleteField();
-        }
-
-        // ============================================================
-        // 📖 كتاب ذكريات
-        // ============================================================
-        if (selectedType.id === "memory_book") {
-            updatePayload.title = document.getElementById("bookTitle").value.trim();
-
-            const finalEvents = [];
-            for (let i = 0; i < eventsState.length; i++) {
-                const evt = eventsState[i];
-                btnSave.innerHTML = `⏳ معالجة الصفحة ${i + 1}/${eventsState.length}...`;
-
-                const processedEvent = {
-                    id: evt.id,
-                    emoji: evt.emoji || "📌",
-                    title: evt.title || "",
-                    date: evt.date || "",
-                    images: [...(evt.images || [])],
-                    video: evt.video || ""
-                };
-
-                if (evt.message && typeof evt.message === "string" && evt.message.trim()) {
-                    btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الرسالة...`;
-                    processedEvent.message = await encryptText(evt.message.trim(), currentEncryptionKey);
-                } else if (evt.message && typeof evt.message === "object") {
-                    processedEvent.message = evt.message;
-                } else {
-                    processedEvent.message = "";
-                }
-
-                if (evt._newImages && evt._newImages.length > 0) {
-                    for (let j = 0; j < evt._newImages.length; j++) {
-                        btnSave.innerHTML = `📸 صفحة ${i + 1}: ضغط الصورة ${j + 1}...`;
-                        const compressed = await compressImage(evt._newImages[j]);
-
-                        btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الصورة ${j + 1}...`;
-                        const { encryptedBlob, iv } = await encryptFile(compressed, currentEncryptionKey);
-
-                        btnSave.innerHTML = `📤 صفحة ${i + 1}: رفع الصورة ${j + 1}...`;
-                        const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
-                            btnSave.innerHTML = `📤 صفحة ${i + 1} - صورة ${j + 1} — ${p}%`;
-                        });
-
-                        processedEvent.images.push({
-                            url: url,
-                            iv: bytesToBase64Url(iv),
-                            encrypted: true,
-                            mimeType: "image/jpeg"
-                        });
-                    }
-                }
-
-                if (evt._newVideo) {
-                    btnSave.innerHTML = `🔐 صفحة ${i + 1}: تشفير الفيديو...`;
-                    const { encryptedBlob, iv } = await encryptFile(evt._newVideo, currentEncryptionKey);
-
-                    btnSave.innerHTML = `📤 صفحة ${i + 1}: رفع الفيديو...`;
-                    const url = await uploadEncryptedToCloudinary(encryptedBlob, (p) => {
-                        btnSave.innerHTML = `📤 صفحة ${i + 1} - فيديو — ${p}%`;
-                    });
-
-                    processedEvent.video = {
-                        url: url,
-                        iv: bytesToBase64Url(iv),
-                        encrypted: true,
-                        mimeType: "video/mp4"
-                    };
-                }
-
-                finalEvents.push(processedEvent);
-            }
-            updatePayload.events = finalEvents;
-        }
-
-        // ============================================================
-        // 💼 بطاقة عمل (عامة)
-        // ============================================================
-        if (selectedType.id === "business_card") {
-            updatePayload.name = document.getElementById("bizName").value.trim();
-            updatePayload.jobTitle = document.getElementById("bizJobTitle").value.trim();
-            updatePayload.company = document.getElementById("bizCompany").value.trim();
-            updatePayload.bio = document.getElementById("bizBio").value.trim();
-            updatePayload.services = document.getElementById("bizServices").value.trim();
-            updatePayload.email = document.getElementById("bizEmail").value.trim();
-            updatePayload.address = document.getElementById("bizAddress").value.trim();
-            updatePayload.facebook = document.getElementById("bizFacebook").value.trim();
-            updatePayload.linkedin = document.getElementById("bizLinkedin").value.trim();
-
-            updatePayload.instagram = bizInstagramList.map(v => v.trim()).filter(v => v !== "");
-            updatePayload.phone = bizPhoneList.map(v => v.trim()).filter(v => v !== "");
-            updatePayload.website = bizWebsiteList.map(v => v.trim()).filter(v => v !== "");
-
-            updatePayload.title = updatePayload.name || updatePayload.company || "بطاقة عمل";
-
-            let logoUrl = oldData.logoUrl || "";
-            if (bizNewLogo) {
-                btnSave.innerHTML = "📤 رفع الشعار...";
-                const compressed = await compressImage(bizNewLogo);
-                logoUrl = await uploadToCloudinary(compressed, "image", (p) => {
-                    btnSave.innerHTML = `🖼️ رفع الشعار — ${p}%`;
-                });
-            }
-            updatePayload.logoUrl = logoUrl;
-            updatePayload.logo = "";
-        }
-
-        // ============================================================
-        // 🐾 بطاقة حيوانات (عامة)
-        // ============================================================
-        if (selectedType.id === "pet_card") {
-            updatePayload.petName = document.getElementById("petName").value.trim();
-            updatePayload.petType = document.getElementById("petType").value;
-            updatePayload.petBreed = document.getElementById("petBreed").value.trim();
-            updatePayload.petAge = document.getElementById("petAge").value.trim();
-            updatePayload.petWeight = document.getElementById("petWeight").value.trim();
-            updatePayload.petColor = document.getElementById("petColor").value.trim();
-            updatePayload.petNotes = document.getElementById("petNotes").value.trim();
-            updatePayload.petVaccinations = document.getElementById("petVaccinations").value;
-            updatePayload.petOwnerName = document.getElementById("petOwnerName").value.trim();
-            updatePayload.petOwnerPhone = document.getElementById("petOwnerPhone").value.trim();
-            updatePayload.petAddress = document.getElementById("petAddress").value.trim();
-
-            updatePayload.title = updatePayload.petName || "بطاقة حيوان";
-
-            let petPhotoUrl = petCurrentPhoto;
-            if (petNewPhoto) {
-                btnSave.innerHTML = "📤 رفع صورة الحيوان...";
-                const compressed = await compressImage(petNewPhoto);
-                petPhotoUrl = await uploadToCloudinary(compressed, "image", (p) => {
-                    btnSave.innerHTML = `🐾 رفع الصورة — ${p}%`;
-                });
-            }
-            updatePayload.petPhoto = petPhotoUrl;
-        }
-
-        btnSave.innerHTML = "💾 جاري الحفظ...";
-        await updateDoc(cardRef, updatePayload);
-
-        alert("✅ تم حفظ الكرت بنجاح!");
-        document.getElementById("editModal").classList.remove("active");
-        await loadUserCards(currentUser.uid);
-
-    } catch (error) {
-        console.error(error);
-        alert("حدث خطأ: " + error.message);
-    } finally {
-        btnSave.innerHTML = originalText;
-        btnSave.disabled = false;
-    }
-});
-
-console.log("✅ customer-dashboard.js جاهز (نظام السؤال السري)");
+    container
