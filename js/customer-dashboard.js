@@ -190,6 +190,13 @@ function toArray(value) {
     return [];
 }
 
+function escapeHtml(text) {
+    if (text === null || text === undefined) return "";
+    const div = document.createElement("div");
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
 // ============================================================
 // 🔐 شاشة السؤال السري + الإجابة (بدل كلمة المرور)
 // ============================================================
