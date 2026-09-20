@@ -38,14 +38,12 @@ const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
-        
         const uniqueFilename = `enc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.enc`;
         formData.append("file", encryptedBlob, uniqueFilename);
         formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
         formData.append("folder", "techluxury/encrypted");
         
         const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`;
-
         const xhr = new XMLHttpRequest();
         xhr.open("POST", url);
 
@@ -60,10 +58,9 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
                 try { 
                     const response = JSON.parse(xhr.responseText);
                     console.log("✅ تم رفع الملف:", response.secure_url);
-                    console.log("📦 الحجم المرفوع:", response.bytes, "بايت =", (response.bytes / 1024).toFixed(2), "KB");
+                    console.log("📦 الحجم المرفوع:", response.bytes, "بايت");
                     resolve(response.secure_url);
-                }
-                catch { reject(new Error("فشل تحليل الاستجابة")); }
+                } catch { reject(new Error("فشل تحليل الاستجابة")); }
             } else {
                 try {
                     const err = JSON.parse(xhr.responseText);
@@ -79,7 +76,6 @@ function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
 function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
-        
         const ext = file.name.split(".").pop() || "bin";
         const uniqueFilename = `${resourceType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
         formData.append("file", file, uniqueFilename);
@@ -87,7 +83,6 @@ function uploadToCloudinary(file, resourceType = "auto", onProgress = null) {
         formData.append("folder", "techluxury/public");
         
         const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
-
         const xhr = new XMLHttpRequest();
         xhr.open("POST", url);
 
@@ -166,10 +161,10 @@ let bizInstagramList = [];
 let bizPhoneList = [];
 let bizWebsiteList = [];
 let newBgMusicFile = null;
-
 let petNewPhoto = null;
 let petCurrentPhoto = "";
 
+// 🔐 جديد: كلمة المرور (الإجابة السرية)
 let currentEncryptionKey = null;
 
 // ===== دوال مساعدة =====
@@ -196,9 +191,10 @@ function toArray(value) {
 }
 
 // ============================================================
-// 🔐 شاشة كلمة المرور
+// 🔐 شاشة السؤال السري + الإجابة (بدل كلمة المرور)
 // ============================================================
-function showPasswordScreen(cardId, salt, isNewPassword, onSuccess) {
+function showSecurityScreen(cardId, salt, mode, existingQuestion, onSuccess) {
+    // mode: "create" (إنشاء جديد) | "unlock" (فتح موجود)
     const modal = document.getElementById("passwordModal");
     const title = document.getElementById("passwordModalTitle");
     const desc = document.getElementById("passwordModalDesc");
@@ -209,38 +205,106 @@ function showPasswordScreen(cardId, salt, isNewPassword, onSuccess) {
     const btn = document.getElementById("btnPasswordConfirm");
     const btnClose = document.getElementById("btnClosePasswordModal");
 
+    // إخفاء الحقول
     input.value = "";
     confirmInput.value = "";
     errorMsg.style.display = "none";
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-check"></i> تأكيد';
 
-    if (isNewPassword) {
-        title.innerHTML = `<i class="fa-solid fa-lock"></i> إنشاء كلمة مرور`;
-        desc.textContent = "لحماية رسائل وصور وفيديو كرتك، اختر كلمة مرور قوية. احفظها جيداً.";
+    // ✅ إضافة حقل السؤال ديناميكياً (إذا لم يكن موجوداً)
+    let questionGroup = document.getElementById("securityQuestionGroup");
+    if (!questionGroup) {
+        questionGroup = document.createElement("div");
+        questionGroup.id = "securityQuestionGroup";
+        questionGroup.className = "form-group";
+        questionGroup.innerHTML = `
+            <label>❓ السؤال السري</label>
+            <input type="text" id="securityQuestionInput" placeholder="مثال: ما اسم أول حيوان أليف لك؟" maxlength="200">
+            <small style="color:#94a3b8;font-size:0.75rem;display:block;margin-top:4px;">
+                سيُعرض هذا السؤال للزائر عند فتح الكرت.
+            </small>
+        `;
+        // ضعه قبل حقل كلمة المرور
+        const passwordGroup = input.closest(".form-group");
+        passwordGroup.parentNode.insertBefore(questionGroup, passwordGroup);
+    }
+
+    // تحديث عنوان حقل الإجابة
+    const passwordLabel = input.previousElementSibling;
+    if (passwordLabel && passwordLabel.tagName === "LABEL") {
+        passwordLabel.textContent = "🔑 الإجابة السرية";
+    }
+    input.placeholder = "أدخل الإجابة...";
+    input.type = "text"; // الإجابات نصوص عادة
+
+    if (mode === "create") {
+        title.innerHTML = `<i class="fa-solid fa-shield-halved"></i> حماية كرتك`;
+        desc.textContent = "اختر سؤالاً سرياً وإجابته. سيُعرض السؤال للزائر عند فتح الكرت، ولن تُخزَّن الإجابة (تُستخدم فقط كمفتاح تشفير).";
+        
+        // إظهار حقل السؤال + التأكيد
+        questionGroup.style.display = "block";
         confirmGroup.style.display = "block";
+        
+        // تحديث label التأكيد
+        const confirmLabel = confirmInput.previousElementSibling;
+        if (confirmLabel && confirmLabel.tagName === "LABEL") {
+            confirmLabel.textContent = "🔁 تأكيد الإجابة السرية";
+        }
+        confirmInput.placeholder = "أعد إدخال الإجابة...";
+        confirmInput.type = "text";
     } else {
-        title.innerHTML = `<i class="fa-solid fa-lock"></i> أدخل كلمة المرور`;
-        desc.textContent = "أدخل كلمة المرور لفك تشفير محتوى الكرت.";
+        title.innerHTML = `<i class="fa-solid fa-lock"></i> الكرت محمي`;
+        desc.textContent = "أجب على السؤال التالي لفتح الكرت.";
+        
+        // إخفاء حقل السؤال (يُعرض السؤال في الوصف)
+        questionGroup.style.display = "none";
         confirmGroup.style.display = "none";
+        
+        // عرض السؤال بشكل بارز
+        const existingDesc = desc.textContent;
+        desc.innerHTML = `
+            ${existingDesc}
+            <div style="background:#0f172a;border:1px solid #2e374a;border-radius:10px;padding:15px;margin-top:15px;text-align:right;">
+                <div style="color:#94a3b8;font-size:0.75rem;margin-bottom:6px;">السؤال:</div>
+                <div style="color:#e2b714;font-weight:600;font-size:1rem;">${escapeHtml(existingQuestion || "غير محدد")}</div>
+            </div>
+        `;
     }
 
     modal.classList.add("active");
 
     const handleConfirm = async () => {
-        const pwd = input.value;
-        if (!pwd) {
-            errorMsg.textContent = "الرجاء إدخال كلمة المرور";
+        const answer = input.value.trim();
+        let question = "";
+
+        if (mode === "create") {
+            question = document.getElementById("securityQuestionInput").value.trim();
+            
+            if (!question) {
+                errorMsg.textContent = "الرجاء إدخال السؤال السري";
+                errorMsg.style.display = "block";
+                return;
+            }
+            if (question.length < 5) {
+                errorMsg.textContent = "السؤال قصير جداً";
+                errorMsg.style.display = "block";
+                return;
+            }
+        }
+
+        if (!answer) {
+            errorMsg.textContent = "الرجاء إدخال الإجابة السرية";
             errorMsg.style.display = "block";
             return;
         }
-        if (pwd.length < 6) {
-            errorMsg.textContent = "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
+        if (answer.length < 2) {
+            errorMsg.textContent = "الإجابة قصيرة جداً";
             errorMsg.style.display = "block";
             return;
         }
-        if (isNewPassword && pwd !== confirmInput.value) {
-            errorMsg.textContent = "كلمتا المرور غير متطابقتين";
+        if (mode === "create" && answer !== confirmInput.value.trim()) {
+            errorMsg.textContent = "الإجابتان غير متطابقتين";
             errorMsg.style.display = "block";
             return;
         }
@@ -249,12 +313,13 @@ function showPasswordScreen(cardId, salt, isNewPassword, onSuccess) {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...';
 
         try {
-            const key = await deriveFinalKey(pwd, null, salt);
+            // ✅ الإجابة = "كلمة المرور" لاشتقاق المفتاح
+            const key = await deriveFinalKey(answer, null, salt);
             currentEncryptionKey = key;
             sessionStorage.setItem(`enc_key_${cardId}`, "cached");
 
             modal.classList.remove("active");
-            onSuccess(key);
+            onSuccess(key, question);
         } catch (err) {
             console.error(err);
             errorMsg.textContent = "حدث خطأ، حاول مرة أخرى";
@@ -415,10 +480,10 @@ async function loadUserCards(uid) {
 }
 
 // ============================================================
-// 🔐 طلب كلمة المرور قبل التعديل
+// 🔐 طلب الإجابة قبل التعديل
 // ============================================================
 async function requestEditWithPassword(cardId, card) {
-    if (!card.salt) {
+    if (!card.salt || !card.protected) {
         currentEncryptionKey = null;
         openEditModal(cardId, card);
         return;
@@ -430,7 +495,7 @@ async function requestEditWithPassword(cardId, card) {
     }
 
     const salt = base64UrlToBytes(card.salt);
-    showPasswordScreen(cardId, salt, false, async (key) => {
+    showSecurityScreen(cardId, salt, "unlock", card.securityQuestion, async (key) => {
         openEditModal(cardId, card);
     });
 }
@@ -587,6 +652,7 @@ document.getElementById("btnConfirmType")?.addEventListener("click", async () =>
         return;
     }
 
+    // إذا النوع محمي → اطلب السؤال + الإجابة
     if (selectedType.protected && !currentEncryptionKey) {
         const cardId = document.getElementById("editCardId").value;
         const cardRef = doc(db, "cards", cardId);
@@ -597,19 +663,21 @@ document.getElementById("btnConfirmType")?.addEventListener("click", async () =>
             const newSalt = generateSalt();
             const saltB64 = bytesToBase64Url(newSalt);
 
-            showPasswordScreen(cardId, newSalt, true, async (key) => {
+            showSecurityScreen(cardId, newSalt, "create", null, async (key, question) => {
                 await updateDoc(cardRef, {
                     salt: saltB64,
                     encryptionVersion: 1,
+                    securityQuestion: question,
                     updatedAt: serverTimestamp()
                 });
                 currentCard.salt = saltB64;
+                currentCard.securityQuestion = question;
                 await showCardFields(currentCard);
             });
             return;
         } else {
             const salt = base64UrlToBytes(cardData.salt);
-            showPasswordScreen(cardId, salt, false, async (key) => {
+            showSecurityScreen(cardId, salt, "unlock", cardData.securityQuestion, async (key) => {
                 await showCardFields(currentCard);
             });
             return;
@@ -652,7 +720,7 @@ async function showCardFields(card) {
                 }
             } catch (e) {
                 document.getElementById("giftMessage").value = "";
-                document.getElementById("giftMessage").placeholder = "⚠️ كلمة المرور خاطئة";
+                document.getElementById("giftMessage").placeholder = "⚠️ الإجابة خاطئة";
             }
         } else {
             document.getElementById("giftMessage").value = card.message || "";
@@ -1128,7 +1196,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         const oldData = cardSnap.data();
 
         if (oldData.salt && !currentEncryptionKey) {
-            throw new Error("يجب إدخال كلمة المرور أولاً");
+            throw new Error("يجب إدخال الإجابة السرية أولاً");
         }
 
         const updatePayload = {
@@ -1185,7 +1253,6 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
             }
             updatePayload.images = finalImages;
 
-            // 🔐 تشفير الفيديو
             let videoData = oldData.video || "";
             if (giftNewVideo) {
                 btnSave.innerHTML = "🔐 جاري تشفير الفيديو...";
@@ -1281,7 +1348,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         }
 
         // ============================================================
-        // 💼 بطاقة عمل (عامة — بدون تشفير)
+        // 💼 بطاقة عمل (عامة)
         // ============================================================
         if (selectedType.id === "business_card") {
             updatePayload.name = document.getElementById("bizName").value.trim();
@@ -1313,7 +1380,7 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
         }
 
         // ============================================================
-        // 🐾 بطاقة حيوانات (عامة — بدون تشفير)
+        // 🐾 بطاقة حيوانات (عامة)
         // ============================================================
         if (selectedType.id === "pet_card") {
             updatePayload.petName = document.getElementById("petName").value.trim();
@@ -1357,4 +1424,4 @@ document.getElementById("editCardForm")?.addEventListener("submit", async (e) =>
     }
 });
 
-console.log("✅ customer-dashboard.js جاهز (4 أنواع كروت)");
+console.log("✅ customer-dashboard.js جاهز (نظام السؤال السري)");
