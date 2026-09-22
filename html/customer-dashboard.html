@@ -3,622 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة ذكرياتي | إدارة القلادات</title>
+    <meta name="description" content="لوحة تحكم Tech Luxury - إدارة منتجات NFC وذكرياتك">
+    <title>لوحة ذكرياتي | Tech Luxury</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
 
-    <style>
-        :root {
-            --bg-dark: #090d16;
-            --card-bg: #141b2d;
-            --accent-gold: #e2b714;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border-color: #2e374a;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
-        body { background-color: var(--bg-dark); color: var(--text-main); padding: 20px; }
-
-        .container { max-width: 900px; margin: 0 auto; }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 30px;
-        }
-
-        .image-locked {
-            width: 70px;
-            height: 70px;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--accent-gold);
-            font-size: 1.5rem;
-            position: relative;
-        }
-
-        .image-locked::after {
-            content: '🔒';
-            position: absolute;
-            bottom: 4px;
-            right: 4px;
-            font-size: 0.75rem;
-        }
-
-        .btn-logout {
-            background: rgba(239, 68, 68, 0.2);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .claim-card-section {
-            background: var(--card-bg);
-            padding: 24px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 30px;
-        }
-
-        .claim-form { display: flex; gap: 12px; margin-top: 15px; }
-        .claim-form input {
-            width: 100%;
-            padding: 12px;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: #fff;
-            outline: none;
-        }
-
-        .btn-claim {
-            background: var(--accent-gold);
-            color: #000;
-            font-weight: 700;
-            border: none;
-            padding: 0 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-        }
-
-        .my-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 15px;
-            position: relative;
-        }
-
-        .my-card .card-type-badge {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background: rgba(226, 183, 20, 0.15);
-            color: var(--accent-gold);
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            border: 1px solid rgba(226, 183, 20, 0.3);
-        }
-
-        .my-card h3 { color: var(--accent-gold); margin-top: 15px; }
-        .my-card p { font-size: 0.9rem; color: var(--text-muted); }
-
-        .btn-edit-memory {
-            width: 100%;
-            background: #3b82f6;
-            color: #fff;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.95rem;
-        }
-        .btn-edit-memory:hover { background: #2563eb; }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(4px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .modal-overlay.active { opacity: 1; visibility: visible; }
-
-        .modal-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            width: 100%;
-            max-width: 700px;
-            max-height: 90vh;
-            overflow-y: auto;
-            padding: 24px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
-
-        .form-group { margin-bottom: 15px; }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .form-group input[type="text"],
-        .form-group input[type="date"],
-        .form-group input[type="email"],
-        .form-group input[type="url"],
-        .form-group input[type="number"],
-        .form-group input[type="password"],
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: #fff;
-        }
-
-        .form-group input[type="file"] {
-            background: #0f172a;
-            padding: 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: #fff;
-            width: 100%;
-        }
-
-        .file-status {
-            font-size: 0.8rem;
-            color: var(--accent-gold);
-            margin-top: 4px;
-            display: block;
-        }
-
-        .btn-save {
-            width: 100%;
-            background: var(--accent-gold);
-            color: #000;
-            font-weight: 700;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 15px;
-        }
-
-        .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .type-selector {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .type-option {
-            background: #0f172a;
-            border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px 15px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-        }
-
-        .type-option:hover {
-            border-color: var(--accent-gold);
-            transform: translateY(-3px);
-        }
-
-        .type-option.selected {
-            border-color: var(--accent-gold);
-            background: rgba(226, 183, 20, 0.1);
-        }
-
-        .type-option i {
-            font-size: 2.2rem;
-            color: var(--accent-gold);
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .type-option span {
-            font-size: 1rem;
-            color: var(--text-main);
-            font-weight: 700;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .type-option small {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            display: block;
-            line-height: 1.4;
-        }
-
-        .type-badge {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            font-size: 0.65rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-weight: 600;
-        }
-
-        .type-badge.protected {
-            background: rgba(34, 197, 94, 0.15);
-            color: #22c55e;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-
-        .type-badge.public {
-            background: rgba(59, 130, 246, 0.15);
-            color: #60a5fa;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        .music-box {
-            background: rgba(226, 183, 20, 0.08);
-            border: 1px solid rgba(226, 183, 20, 0.3);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-
-        .section-title {
-            font-size: 1.05rem;
-            color: var(--accent-gold);
-            margin: 20px 0 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        /* ✅ قسم الحماية */
-        .protection-box {
-            background: linear-gradient(135deg, rgba(226, 183, 20, 0.08), rgba(226, 183, 20, 0.02));
-            border: 1px solid rgba(226, 183, 20, 0.4);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .protection-box .section-title {
-            margin-top: 0;
-            color: var(--accent-gold);
-            border-bottom: 1px solid rgba(226, 183, 20, 0.2);
-        }
-
-        .protection-hint {
-            background: rgba(59, 130, 246, 0.1);
-            border-right: 3px solid #3b82f6;
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #93c5fd;
-            margin-bottom: 15px;
-        }
-
-        .warning-box {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 8px;
-            padding: 12px;
-            color: #fca5a5;
-            font-size: 0.85rem;
-            margin-top: 10px;
-            line-height: 1.5;
-        }
-
-        .current-images-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .image-thumb {
-            position: relative;
-            display: inline-block;
-        }
-
-        .image-thumb img {
-            width: 70px;
-            height: 70px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-
-        .image-thumb button {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            background: #ef4444;
-            color: #fff;
-            border: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 11px;
-            line-height: 1;
-        }
-
-        .hidden { display: none !important; }
-
-        .events-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .event-card {
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-        }
-
-        .event-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .event-card-header h4 {
-            color: var(--accent-gold);
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-        }
-
-        .event-number {
-            background: var(--accent-gold);
-            color: #000;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 0.8rem;
-            margin-left: 8px;
-        }
-
-        .btn-remove-event {
-            background: rgba(239, 68, 68, 0.15);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            padding: 6px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.85rem;
-        }
-
-        .btn-add-event {
-            width: 100%;
-            background: rgba(226, 183, 20, 0.1);
-            color: var(--accent-gold);
-            border: 2px dashed var(--accent-gold);
-            padding: 14px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 0.95rem;
-            transition: all 0.2s;
-            margin-bottom: 15px;
-        }
-
-        .btn-add-event:hover { background: rgba(226, 183, 20, 0.2); }
-
-        .hint {
-            background: rgba(59, 130, 246, 0.1);
-            border-right: 3px solid #3b82f6;
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #93c5fd;
-            margin-bottom: 15px;
-        }
-
-        .emoji-picker {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-top: 8px;
-        }
-
-        .emoji-picker button {
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .emoji-picker button:hover {
-            border-color: var(--accent-gold);
-            transform: scale(1.1);
-        }
-
-        .emoji-picker button.selected {
-            border-color: var(--accent-gold);
-            background: rgba(226, 183, 20, 0.15);
-        }
-
-        .social-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .social-item {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 8px;
-        }
-
-        .social-item input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #fff;
-            padding: 6px;
-            outline: none;
-            font-size: 0.95rem;
-        }
-
-        .btn-remove-social {
-            background: rgba(239, 68, 68, 0.15);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .btn-add-social {
-            width: 100%;
-            background: rgba(226, 183, 20, 0.1);
-            color: var(--accent-gold);
-            border: 2px dashed var(--accent-gold);
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-
-        .btn-add-social:hover {
-            background: rgba(226, 183, 20, 0.2);
-        }
-    </style>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
 </head>
-<body>
+<body class="dashboard-page">
 
-    <div class="container">
-        <header>
-            <div>
-                <h2>أهلاً بك، <span id="userName">جاري التحميل...</span> 👋</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">مرحباً بك في Tech Luxury</p>
+    <!-- =========================
+         Top Navbar
+    ========================== -->
+    <header class="dash-navbar">
+        <div class="dash-nav-container">
+
+            <a href="../index.html" class="brand-logo">
+                <i class="fa-solid fa-gem"></i>
+                <span>Tech Luxury</span>
+            </a>
+
+            <div class="dash-user">
+                <div class="dash-user-info">
+                    <span class="dash-user-label">أهلاً بك،</span>
+                    <span class="dash-user-name" id="userName">جاري التحميل...</span>
+                </div>
+                <button id="btnLogout" class="btn-logout" aria-label="تسجيل الخروج">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>خروج</span>
+                </button>
             </div>
-            <button id="btnLogout" class="btn-logout">
-                <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
-            </button>
-        </header>
 
-        <div class="claim-card-section">
-            <h3><i class="fa-solid fa-plus-circle"></i> تفعيل كرت جديد</h3>
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 5px;">أدخل رمز الكرت المكتوب على العلبة.</p>
-            <div class="claim-form">
-                <input type="text" id="cardIdInput" placeholder="مثال: X7K29P4M">
-                <button id="btnClaimCard" class="btn-claim">ربط الكرت</button>
-            </div>
         </div>
+    </header>
 
-        <h3 style="margin-bottom: 15px;">منتجاتك</h3>
-        <div class="cards-grid" id="myCardsList">
-            <p style="color:#94a3b8;">جاري التحميل...</p>
+    <!-- =========================
+         Main Content
+    ========================== -->
+    <main class="dash-main">
+        <div class="container">
+
+            <!-- Welcome Banner -->
+            <section class="dash-welcome">
+                <div class="dash-welcome-content">
+                    <h1>لوحة ذكرياتي</h1>
+                    <p>أدر منتجات NFC الخاصة بك، اربط كروتاً جديدة، وأضف ذكرياتك بكل سهولة.</p>
+                </div>
+                <div class="dash-welcome-icon">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+            </section>
+
+            <!-- Claim Card Section -->
+            <section class="claim-card-section">
+                <div class="claim-header">
+                    <div class="claim-icon">
+                        <i class="fa-solid fa-plus-circle"></i>
+                    </div>
+                    <div>
+                        <h3>تفعيل كرت جديد</h3>
+                        <p>أدخل رمز الكرت المكتوب على العلبة.</p>
+                    </div>
+                </div>
+                <div class="claim-form">
+                    <input
+                        type="text"
+                        id="cardIdInput"
+                        placeholder="مثال: X7K29P4M"
+                        autocomplete="off"
+                        spellcheck="false"
+                        dir="ltr">
+                    <button id="btnClaimCard" class="btn-claim">
+                        <i class="fa-solid fa-link"></i>
+                        <span>ربط الكرت</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- My Cards Section -->
+            <section class="my-cards-section">
+                <div class="section-header-dash">
+                    <h2>
+                        <i class="fa-solid fa-layer-group"></i>
+                        منتجاتك
+                    </h2>
+                </div>
+
+                <div class="cards-grid" id="myCardsList">
+                    <div class="dash-loading">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span>جاري التحميل...</span>
+                    </div>
+                </div>
+            </section>
+
         </div>
-    </div>
+    </main>
 
-    <!-- نافذة التعديل -->
+    <!-- =========================
+         Edit Modal
+    ========================== -->
     <div class="modal-overlay" id="editModal">
-        <div class="modal-card">
+        <div class="modal-card modal-card-lg">
+
             <div class="modal-header">
-                <h3 id="modalTitle"><i class="fa-solid fa-pen-to-square"></i> إدارة الكرت</h3>
-                <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+                <h3 id="modalTitle">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    إدارة الكرت
+                </h3>
+                <button class="modal-close" id="btnCloseModal" aria-label="إغلاق">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
             <form id="editCardForm">
                 <input type="hidden" id="editCardId">
 
-                <!-- 1) اختيار نوع الكرت -->
+                <!-- =========================
+                     Step 1: Type Selection
+                ========================== -->
                 <div id="stepTypeSelect" class="hidden">
-                    <h3 class="section-title"><i class="fa-solid fa-list"></i> اختر نوع الكرت</h3>
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-list"></i>
+                        اختر نوع الكرت
+                    </h3>
                     <div class="type-selector" id="typeSelector"></div>
-                    <button type="button" id="btnConfirmType" class="btn-save" style="margin-top:20px;" disabled>
+                    <button type="button" id="btnConfirmType" class="btn-save" disabled>
+                        <i class="fa-solid fa-arrow-left"></i>
                         متابعة
                     </button>
                 </div>
 
-                <!-- 2) حقول الكرت -->
+                <!-- =========================
+                     Step 2: Card Fields
+                ========================== -->
                 <div id="stepCardFields" class="hidden">
 
-                    <!-- ✅ قسم الحماية (يظهر فقط للأنواع المحمية) -->
+                    <!-- Protection Section -->
                     <div id="protectionSection" class="protection-box hidden">
                         <h3 class="section-title">
-                            <i class="fa-solid fa-shield-halved"></i> حماية الكرت
+                            <i class="fa-solid fa-shield-halved"></i>
+                            حماية الكرت
                         </h3>
                         <div class="protection-hint">
                             <i class="fa-solid fa-circle-info"></i>
@@ -626,66 +156,114 @@
                         </div>
 
                         <div class="form-group">
-                            <label>❓ السؤال السري *</label>
-                            <input type="text" id="securityQuestionInput"
-                                   placeholder="مثال: ما اسم أول حيوان أليف لك؟"
-                                   maxlength="200">
+                            <label for="securityQuestionInput">
+                                <i class="fa-solid fa-question-circle"></i>
+                                السؤال السري <span class="required">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="securityQuestionInput"
+                                placeholder="مثال: ما اسم أول حيوان أليف لك؟"
+                                maxlength="200">
                         </div>
 
                         <div class="form-group">
-                            <label>🔑 الإجابة السرية *</label>
-                            <input type="text" id="securityAnswerInput"
-                                   placeholder="أدخل الإجابة..."
-                                   autocomplete="new-password">
+                            <label for="securityAnswerInput">
+                                <i class="fa-solid fa-key"></i>
+                                الإجابة السرية <span class="required">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="securityAnswerInput"
+                                placeholder="أدخل الإجابة..."
+                                autocomplete="new-password">
                         </div>
 
                         <div class="form-group">
-                            <label>🔁 تأكيد الإجابة *</label>
-                            <input type="text" id="securityAnswerConfirm"
-                                   placeholder="أعد إدخال الإجابة..."
-                                   autocomplete="new-password">
+                            <label for="securityAnswerConfirm">
+                                <i class="fa-solid fa-rotate"></i>
+                                تأكيد الإجابة <span class="required">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="securityAnswerConfirm"
+                                placeholder="أعد إدخال الإجابة..."
+                                autocomplete="new-password">
                         </div>
 
                         <div class="warning-box">
                             <i class="fa-solid fa-triangle-exclamation"></i>
-                            <strong>مهم:</strong> احفظ السؤال والإجابة جيداً — لا يمكن استعادتهما إذا نسيتهما.
+                            <strong>مهم:</strong>
+                            احفظ السؤال والإجابة جيداً — لا يمكن استعادتهما إذا نسيتهما.
                         </div>
                     </div>
 
-                    <!-- نوع 1: كرت هدية -->
+                    <!-- =========================
+                         Type: Gift Card
+                    ========================== -->
                     <div id="giftFields" class="hidden">
                         <div class="form-group">
-                            <label>عنوان الهدية</label>
+                            <label for="giftTitle">
+                                <i class="fa-solid fa-heading"></i>
+                                عنوان الهدية
+                            </label>
                             <input type="text" id="giftTitle" placeholder="مثال: إلى أغلى إنسانة ❤️">
                         </div>
 
                         <div class="form-group">
-                            <label>الرسالة / الكلمة</label>
+                            <label for="giftMessage">
+                                <i class="fa-solid fa-comment-dots"></i>
+                                الرسالة / الكلمة
+                            </label>
                             <textarea id="giftMessage" rows="4" placeholder="اكتب رسالتك الخاصة هنا..."></textarea>
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-images"></i> الصور</h3>
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-images"></i>
+                            الصور
+                        </h3>
+
                         <div class="form-group">
-                            <label>الصور المحفوظة (<span id="giftImagesCount">0</span>)</label>
+                            <label>
+                                <i class="fa-solid fa-image"></i>
+                                الصور المحفوظة (<span id="giftImagesCount">0</span>)
+                            </label>
                             <div class="current-images-container" id="giftCurrentImages"></div>
                         </div>
+
                         <div class="form-group">
-                            <label>📤 إضافة صور جديدة</label>
+                            <label for="giftImages">
+                                <i class="fa-solid fa-upload"></i>
+                                إضافة صور جديدة
+                            </label>
                             <input type="file" id="giftImages" accept="image/*" multiple>
                             <span class="file-status" id="giftImagesStatus"></span>
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-video"></i> الفيديو (اختياري)</h3>
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-video"></i>
+                            الفيديو (اختياري)
+                        </h3>
+
                         <div class="form-group">
+                            <label for="giftVideo">
+                                <i class="fa-solid fa-film"></i>
+                                فيديو الكرت
+                            </label>
                             <input type="file" id="giftVideo" accept="video/*">
                             <span class="file-status" id="giftVideoStatus"></span>
                         </div>
                     </div>
 
-                    <!-- نوع 2: كتاب ذكريات -->
+                    <!-- =========================
+                         Type: Memory Book
+                    ========================== -->
                     <div id="bookFields" class="hidden">
                         <div class="form-group">
-                            <label>عنوان الكتاب</label>
+                            <label for="bookTitle">
+                                <i class="fa-solid fa-book"></i>
+                                عنوان الكتاب
+                            </label>
                             <input type="text" id="bookTitle" placeholder="مثال: قصة حبنا 💕">
                         </div>
 
@@ -697,97 +275,159 @@
                         <div class="events-list" id="eventsList"></div>
 
                         <button type="button" id="btnAddEvent" class="btn-add-event">
-                            <i class="fa-solid fa-plus"></i> إضافة صفحة جديدة
+                            <i class="fa-solid fa-plus"></i>
+                            إضافة صفحة جديدة
                         </button>
                     </div>
 
-                    <!-- نوع 3: بطاقة عمل -->
+                    <!-- =========================
+                         Type: Business Card
+                    ========================== -->
                     <div id="businessFields" class="hidden">
                         <div class="form-group">
-                            <label>الاسم الكامل</label>
+                            <label for="bizName">
+                                <i class="fa-solid fa-user"></i>
+                                الاسم الكامل
+                            </label>
                             <input type="text" id="bizName" placeholder="مثال: أحمد محمد">
                         </div>
 
                         <div class="form-group">
-                            <label>المسمى الوظيفي</label>
+                            <label for="bizJobTitle">
+                                <i class="fa-solid fa-briefcase"></i>
+                                المسمى الوظيفي
+                            </label>
                             <input type="text" id="bizJobTitle" placeholder="مثال: مدير التسويق">
                         </div>
 
                         <div class="form-group">
-                            <label>اسم المؤسسة / الشركة</label>
+                            <label for="bizCompany">
+                                <i class="fa-solid fa-building"></i>
+                                اسم المؤسسة / الشركة
+                            </label>
                             <input type="text" id="bizCompany" placeholder="مثال: شركة تكس لاكشري">
                         </div>
 
                         <div class="form-group">
-                            <label>نبذة تعريفية</label>
+                            <label for="bizBio">
+                                <i class="fa-solid fa-align-right"></i>
+                                نبذة تعريفية
+                            </label>
                             <textarea id="bizBio" rows="3" placeholder="اكتب نبذة قصيرة..."></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>الخدمات / ما تقدمه</label>
+                            <label for="bizServices">
+                                <i class="fa-solid fa-list-check"></i>
+                                الخدمات / ما تقدمه
+                            </label>
                             <textarea id="bizServices" rows="3" placeholder="مثال: تصميم مواقع، تطبيقات..."></textarea>
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-address-book"></i> معلومات التواصل</h3>
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-address-book"></i>
+                            معلومات التواصل
+                        </h3>
 
                         <div class="form-group">
-                            <label>📱 أرقام الهاتف</label>
+                            <label>
+                                <i class="fa-solid fa-phone"></i>
+                                أرقام الهاتف
+                            </label>
                             <div id="phoneList" class="social-list"></div>
                             <button type="button" id="btnAddPhone" class="btn-add-social">
-                                <i class="fa-solid fa-plus"></i> إضافة رقم هاتف
+                                <i class="fa-solid fa-plus"></i>
+                                إضافة رقم هاتف
                             </button>
                         </div>
 
                         <div class="form-group">
-                            <label>🌐 المواقع الإلكترونية</label>
+                            <label>
+                                <i class="fa-solid fa-globe"></i>
+                                المواقع الإلكترونية
+                            </label>
                             <div id="websiteList" class="social-list"></div>
                             <button type="button" id="btnAddWebsite" class="btn-add-social">
-                                <i class="fa-solid fa-plus"></i> إضافة موقع
+                                <i class="fa-solid fa-plus"></i>
+                                إضافة موقع
                             </button>
                         </div>
 
                         <div class="form-group">
-                            <label>📧 البريد الإلكتروني</label>
-                            <input type="email" id="bizEmail" placeholder="email@example.com">
+                            <label for="bizEmail">
+                                <i class="fa-solid fa-envelope"></i>
+                                البريد الإلكتروني
+                            </label>
+                            <input type="email" id="bizEmail" placeholder="email@example.com" dir="ltr">
                         </div>
 
                         <div class="form-group">
-                            <label>📍 العنوان</label>
+                            <label for="bizAddress">
+                                <i class="fa-solid fa-location-dot"></i>
+                                العنوان
+                            </label>
                             <input type="text" id="bizAddress" placeholder="عمّان، الأردن">
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-share-nodes"></i> السوشيال ميديا</h3>
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-share-nodes"></i>
+                            السوشيال ميديا
+                        </h3>
 
                         <div class="form-group">
-                            <label>📸 حسابات إنستغرام</label>
+                            <label>
+                                <i class="fa-brands fa-instagram"></i>
+                                حسابات إنستغرام
+                            </label>
                             <div id="instagramList" class="social-list"></div>
                             <button type="button" id="btnAddInstagram" class="btn-add-social">
-                                <i class="fa-solid fa-plus"></i> إضافة حساب
+                                <i class="fa-solid fa-plus"></i>
+                                إضافة حساب
                             </button>
                         </div>
 
                         <div class="form-group">
-                            <label>👍 فيسبوك</label>
-                            <input type="text" id="bizFacebook" placeholder="facebook.com/page">
-                        </div>
-                        <div class="form-group">
-                            <label>💼 لينكد إن</label>
-                            <input type="text" id="bizLinkedin" placeholder="linkedin.com/in/...">
+                            <label for="bizFacebook">
+                                <i class="fa-brands fa-facebook"></i>
+                                فيسبوك
+                            </label>
+                            <input type="text" id="bizFacebook" placeholder="facebook.com/page" dir="ltr">
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-image"></i> الشعار / الصورة الشخصية</h3>
                         <div class="form-group">
-                            <label>الصورة الحالية</label>
+                            <label for="bizLinkedin">
+                                <i class="fa-brands fa-linkedin"></i>
+                                لينكد إن
+                            </label>
+                            <input type="text" id="bizLinkedin" placeholder="linkedin.com/in/..." dir="ltr">
+                        </div>
+
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-image"></i>
+                            الشعار / الصورة الشخصية
+                        </h3>
+
+                        <div class="form-group">
+                            <label>
+                                <i class="fa-solid fa-image"></i>
+                                الصورة الحالية
+                            </label>
                             <div class="current-images-container" id="bizLogoContainer"></div>
                         </div>
+
                         <div class="form-group">
-                            <label>📤 رفع شعار / صورة جديدة</label>
+                            <label for="bizLogo">
+                                <i class="fa-solid fa-upload"></i>
+                                رفع شعار / صورة جديدة
+                            </label>
                             <input type="file" id="bizLogo" accept="image/*">
                             <span class="file-status" id="bizLogoStatus"></span>
                         </div>
                     </div>
 
-                    <!-- نوع 4: بطاقة حيوانات -->
+                    <!-- =========================
+                         Type: Pet Card
+                    ========================== -->
                     <div id="petFields" class="hidden">
                         <div class="hint">
                             <i class="fa-solid fa-paw"></i>
@@ -795,12 +435,18 @@
                         </div>
 
                         <div class="form-group">
-                            <label>🐾 اسم الحيوان</label>
+                            <label for="petName">
+                                <i class="fa-solid fa-paw"></i>
+                                اسم الحيوان
+                            </label>
                             <input type="text" id="petName" placeholder="مثال: ليو">
                         </div>
 
                         <div class="form-group">
-                            <label>🐾 نوع الحيوان</label>
+                            <label for="petType">
+                                <i class="fa-solid fa-dog"></i>
+                                نوع الحيوان
+                            </label>
                             <select id="petType">
                                 <option value="">— اختر —</option>
                                 <option value="قط">🐱 قط</option>
@@ -815,113 +461,185 @@
                         </div>
 
                         <div class="form-group">
-                            <label>🧬 السلالة</label>
+                            <label for="petBreed">
+                                <i class="fa-solid fa-dna"></i>
+                                السلالة
+                            </label>
                             <input type="text" id="petBreed" placeholder="مثال: شيرازي">
                         </div>
 
                         <div class="form-group">
-                            <label>🎂 العمر</label>
+                            <label for="petAge">
+                                <i class="fa-solid fa-cake-candles"></i>
+                                العمر
+                            </label>
                             <input type="text" id="petAge" placeholder="مثال: 3 سنوات">
                         </div>
 
                         <div class="form-group">
-                            <label>⚖️ الوزن</label>
+                            <label for="petWeight">
+                                <i class="fa-solid fa-weight-scale"></i>
+                                الوزن
+                            </label>
                             <input type="text" id="petWeight" placeholder="مثال: 4 كجم">
                         </div>
 
                         <div class="form-group">
-                            <label>🎨 اللون</label>
+                            <label for="petColor">
+                                <i class="fa-solid fa-palette"></i>
+                                اللون
+                            </label>
                             <input type="text" id="petColor" placeholder="مثال: أبيض مع رمادي">
                         </div>
 
                         <div class="form-group">
-                            <label>📝 ملاحظات (حساسية، أدوية، طعام خاص)</label>
+                            <label for="petNotes">
+                                <i class="fa-solid fa-notes-medical"></i>
+                                ملاحظات (حساسية، أدوية، طعام خاص)
+                            </label>
                             <textarea id="petNotes" rows="3" placeholder="مثال: حساسية من الدجاج..."></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>💉 آخر تطعيم</label>
+                            <label for="petVaccinations">
+                                <i class="fa-solid fa-syringe"></i>
+                                آخر تطعيم
+                            </label>
                             <input type="date" id="petVaccinations">
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-user"></i> معلومات المالك</h3>
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-user"></i>
+                            معلومات المالك
+                        </h3>
 
                         <div class="form-group">
-                            <label>👤 اسم المالك</label>
+                            <label for="petOwnerName">
+                                <i class="fa-solid fa-user"></i>
+                                اسم المالك
+                            </label>
                             <input type="text" id="petOwnerName" placeholder="اسمك الكامل">
                         </div>
 
                         <div class="form-group">
-                            <label>📱 رقم الهاتف (للتواصل إذا ضاع الحيوان)</label>
-                            <input type="tel" id="petOwnerPhone" placeholder="+962 7XXXXXXXX">
+                            <label for="petOwnerPhone">
+                                <i class="fa-solid fa-phone"></i>
+                                رقم الهاتف (للتواصل إذا ضاع الحيوان)
+                            </label>
+                            <input type="tel" id="petOwnerPhone" placeholder="+962 7XXXXXXXX" dir="ltr">
                         </div>
 
                         <div class="form-group">
-                            <label>📍 العنوان</label>
+                            <label for="petAddress">
+                                <i class="fa-solid fa-location-dot"></i>
+                                العنوان
+                            </label>
                             <input type="text" id="petAddress" placeholder="عمّان، الأردن">
                         </div>
 
-                        <h3 class="section-title"><i class="fa-solid fa-camera"></i> صورة الحيوان</h3>
+                        <h3 class="section-title">
+                            <i class="fa-solid fa-camera"></i>
+                            صورة الحيوان
+                        </h3>
+
                         <div class="form-group">
-                            <label>الصورة الحالية</label>
+                            <label>
+                                <i class="fa-solid fa-image"></i>
+                                الصورة الحالية
+                            </label>
                             <div class="current-images-container" id="petPhotoContainer"></div>
                         </div>
+
                         <div class="form-group">
-                            <label>📤 رفع صورة جديدة</label>
+                            <label for="petPhoto">
+                                <i class="fa-solid fa-upload"></i>
+                                رفع صورة جديدة
+                            </label>
                             <input type="file" id="petPhoto" accept="image/*">
                             <span class="file-status" id="petPhotoStatus"></span>
                         </div>
                     </div>
 
-                    <!-- الموسيقى العامة -->
-                    <h3 class="section-title"><i class="fa-solid fa-music"></i> موسيقى الخلفية</h3>
+                    <!-- =========================
+                         Background Music (Shared)
+                    ========================== -->
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-music"></i>
+                        موسيقى الخلفية
+                    </h3>
+
                     <div class="music-box">
                         <div class="form-group" style="margin-bottom:0;">
-                            <label>🎵 الموسيقى التي ستعمل تلقائياً عند فتح الكرت</label>
+                            <label for="editBgMusic">
+                                <i class="fa-solid fa-music"></i>
+                                الموسيقى التي ستعمل تلقائياً عند فتح الكرت
+                            </label>
                             <input type="file" id="editBgMusic" accept="audio/*">
                             <span class="file-status" id="bgMusicStatus"></span>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-save" id="btnSaveData" style="margin-top:20px;">
-                        <i class="fa-solid fa-floppy-disk"></i> حفظ الكرت
+                    <!-- Submit -->
+                    <button type="submit" class="btn-save" id="btnSaveData">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        حفظ الكرت
                     </button>
+
                 </div>
             </form>
+
         </div>
     </div>
 
-    <!-- Modal فك التشفير (عند فتح كرت محمي للتعديل) -->
+    <!-- =========================
+         Unlock Modal (Protected Cards)
+    ========================== -->
     <div class="modal-overlay" id="unlockModal">
-        <div class="modal-card" style="max-width: 480px;">
+        <div class="modal-card modal-card-sm">
+
             <div class="modal-header">
-                <h3><i class="fa-solid fa-shield-halved"></i> فتح الكرت المحمي</h3>
-                <button class="modal-close" id="btnCloseUnlockModal"><i class="fa-solid fa-xmark"></i></button>
+                <h3>
+                    <i class="fa-solid fa-shield-halved"></i>
+                    فتح الكرت المحمي
+                </h3>
+                <button class="modal-close" id="btnCloseUnlockModal" aria-label="إغلاق">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6;">
+            <p class="unlock-desc">
                 أجب على السؤال التالي لفتح الكرت وتعديل محتواه.
             </p>
 
-            <div id="unlockQuestionDisplay" style="background:#0f172a;border:1px solid #2e374a;border-radius:10px;padding:15px;margin-bottom:20px;">
-                <div style="color:#94a3b8;font-size:0.75rem;margin-bottom:6px;">
-                    <i class="fa-solid fa-question-circle"></i> السؤال:
+            <div id="unlockQuestionDisplay" class="unlock-question-box">
+                <div class="unlock-question-label">
+                    <i class="fa-solid fa-question-circle"></i>
+                    السؤال:
                 </div>
-                <div id="unlockQuestionText" style="color:#e2b714;font-weight:600;font-size:1rem;line-height:1.5;">
+                <div id="unlockQuestionText" class="unlock-question-text">
                     —
                 </div>
             </div>
 
             <div class="form-group">
-                <label>🔑 الإجابة السرية</label>
-                <input type="text" id="unlockAnswerInput" placeholder="أدخل الإجابة..." autocomplete="off">
+                <label for="unlockAnswerInput">
+                    <i class="fa-solid fa-key"></i>
+                    الإجابة السرية
+                </label>
+                <input
+                    type="text"
+                    id="unlockAnswerInput"
+                    placeholder="أدخل الإجابة..."
+                    autocomplete="off">
             </div>
 
-            <p class="error-msg" id="unlockError" style="display:none; color:#f87171; font-size:0.85rem; margin-top:10px;"></p>
+            <p class="error-msg" id="unlockError"></p>
 
-            <button type="button" class="btn-save" id="btnUnlockConfirm" style="margin-top: 20px;">
-                <i class="fa-solid fa-unlock"></i> فتح الكرت
+            <button type="button" class="btn-save" id="btnUnlockConfirm">
+                <i class="fa-solid fa-unlock"></i>
+                فتح الكرت
             </button>
+
         </div>
     </div>
 
