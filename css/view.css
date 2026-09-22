@@ -1185,39 +1185,40 @@
     opacity: 0.15;
     pointer-events: none;
 }
-
-/* ✨ Larger Pet Photo */
+/* ✨ Pet Photo — Rectangle Banner Style */
 .pet-photo-wrapper {
     position: relative;
-    display: inline-block;
-    margin: 0 auto 1.5rem;
+    display: block;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto 1.75rem;
     z-index: 1;
 }
 
 .pet-photo {
-    width: clamp(170px, 42vw, 210px);
-    height: clamp(170px, 42vw, 210px);
-    border-radius: 50%;
+    width: 100%;
+    height: clamp(200px, 55vw, 280px);
+    border-radius: var(--radius-lg);
     object-fit: cover;
-    border: 5px solid #22c55e;
+    border: 3px solid #22c55e;
     display: block;
     background: var(--bg-primary);
     box-shadow:
-        0 0 0 8px rgba(34, 197, 94, 0.06),
+        0 0 0 6px rgba(34, 197, 94, 0.06),
         0 20px 50px rgba(0, 0, 0, 0.5),
-        0 0 40px rgba(34, 197, 94, 0.3);
+        0 0 40px rgba(34, 197, 94, 0.25);
     transition: transform var(--transition);
 }
 
 .pet-photo:hover {
-    transform: scale(1.03);
+    transform: scale(1.02);
 }
 
 .pet-photo-placeholder {
-    width: clamp(170px, 42vw, 210px);
-    height: clamp(170px, 42vw, 210px);
-    border-radius: 50%;
-    border: 5px solid #22c55e;
+    width: 100%;
+    height: clamp(200px, 55vw, 280px);
+    border-radius: var(--radius-lg);
+    border: 3px solid #22c55e;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1225,22 +1226,24 @@
     font-size: clamp(4rem, 14vw, 5.5rem);
     color: #22c55e;
     box-shadow:
-        0 0 0 8px rgba(34, 197, 94, 0.06),
+        0 0 0 6px rgba(34, 197, 94, 0.06),
         0 20px 50px rgba(0, 0, 0, 0.5),
-        0 0 40px rgba(34, 197, 94, 0.3);
+        0 0 40px rgba(34, 197, 94, 0.25);
 }
 
-/* Decorative ring */
+/* شريط زخرفي علوي بدلاً من الحلقة الدوارة */
 .pet-photo-wrapper::after {
     content: '';
     position: absolute;
-    inset: -16px;
-    border-radius: 50%;
-    border: 1px dashed rgba(34, 197, 94, 0.4);
-    opacity: 0.6;
-    animation: rotateRing 25s linear infinite;
+    top: 0;
+    inset-inline: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, #22c55e, transparent);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    opacity: 0.7;
     pointer-events: none;
 }
+
 
 .pet-name {
     font-size: clamp(1.5rem, 5vw, 1.9rem);
