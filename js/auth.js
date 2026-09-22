@@ -108,3 +108,21 @@ onAuthStateChanged(auth, (user) => {
         window.location.href = "customer-dashboard.html";
     }
 });
+
+// ===== Password Visibility Toggle (UI only — no logic change) =====
+const togglePasswordBtn = document.getElementById("btnTogglePassword");
+const passwordInput = document.getElementById("password");
+
+if (togglePasswordBtn && passwordInput) {
+    togglePasswordBtn.addEventListener("click", () => {
+        const isPassword = passwordInput.type === "password";
+        passwordInput.type = isPassword ? "text" : "password";
+        togglePasswordBtn.innerHTML = isPassword
+            ? '<i class="fa-solid fa-eye-slash"></i>'
+            : '<i class="fa-solid fa-eye"></i>';
+        togglePasswordBtn.setAttribute(
+            "aria-label",
+            isPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"
+        );
+    });
+}
