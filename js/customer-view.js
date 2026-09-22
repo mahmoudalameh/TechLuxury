@@ -95,7 +95,7 @@ async function init() {
 }
 
 // ============================================================
-// 🔐 شاشة السؤال السري (بدل كلمة المرور)
+// 🔐 شاشة السؤال السري
 // ============================================================
 function showPasswordPrompt(card) {
     loadingScreen.classList.add("hidden");
@@ -150,7 +150,6 @@ function showPasswordPrompt(card) {
             const key = await deriveFinalKey(answer, null, salt);
             currentEncryptionKey = key;
 
-            // اختبار: حاول فك تشفير أول شيء متاح
             let testPassed = false;
 
             if (card.message && typeof card.message === "object" && card.message.ciphertext) {
@@ -291,14 +290,12 @@ async function renderGiftCard(card, typeInfo) {
         }
     }
 
-    // 🎬 فك تشفير الفيديو (يدعم عدة صيغ)
+    // 🎬 فك تشفير الفيديو
     let videoUrl = null;
 
-    // الحالة 1: videoUrl نص عادي (قديم - غير مشفر)
     if (card.videoUrl && typeof card.videoUrl === "string") {
         videoUrl = card.videoUrl;
     }
-    // الحالة 2: video كائن مشفر (جديد)
     else if (card.video && typeof card.video === "object" && card.video.encrypted && card.video.url) {
         if (currentEncryptionKey) {
             try {
@@ -318,10 +315,62 @@ async function renderGiftCard(card, typeInfo) {
             }
         }
     }
-    // الحالة 3: video نص عادي (احتياطي)
     else if (card.video && typeof card.video === "string") {
         videoUrl = card.video;
     }
+
+    // ✨ بناء واجهة الألبوم (يدعم المصغرات عند الصور الكثيرة)
+    const totalImages = decryptedImages.length;
+    const useThumbnails = totalImages > 4;
+
+    const albumHtml = totalImages > 0 ? `
+        <h3 class="section-title"><i class="fa-solid fa-images"></i> ألبوم الصور (${totalImages})</h3>
+        <div class="album-container" id="albumContainer">
+            <div class="album-viewport" id="albumViewport">
+                <div class="album-top-bar">
+                    <div class="album-counter" id="albumCounter">
+                        <i class="fa-solid fa-image"></i>
+                        <span>1 / ${totalImages}</span>
+                    </div>
+                    ${totalImages > 1 ? `
+                        <button type="button" class="album-expand-btn" id="albumExpandBtn" aria-label="عرض كامل">
+                            <i class="fa-solid fa-expand"></i>
+                        </button>
+                    ` : ""}
+                </div>
+                ${decryptedImages.map((url, i) => `
+                    <div class="album-slide ${i === 0 ? "active" : ""}" data-slide="${i}">
+                        <img src="${url}" alt="صورة ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" draggable="false">
+                    </div>
+                `).join("")}
+                ${totalImages > 1 ? `
+                    <button class="album-nav-btn prev" id="albumPrev" aria-label="السابق"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="album-nav-btn next" id="albumNext" aria-label="التالي"><i class="fa-solid fa-chevron-left"></i></button>
+                ` : ""}
+            </div>
+            ${totalImages > 1 ? (
+                useThumbnails ? `
+                    <div class="album-thumbs" id="albumThumbs">
+                        ${decryptedImages.map((url, i) => `
+                            <button type="button" class="album-thumb ${i === 0 ? "active" : ""}" data-thumb="${i}" aria-label="صورة ${i + 1}">
+                                <img src="${url}" alt="" loading="lazy">
+                            </button>
+                        `).join("")}
+                    </div>
+                    <div class="album-progress">
+                        <div class="album-progress-track">
+                            <div class="album-progress-fill" id="albumProgressFill" style="width: ${100 / totalImages}%"></div>
+                        </div>
+                        <div class="album-progress-label" id="albumProgressLabel">1 / ${totalImages}</div>
+                    </div>
+                ` : `
+                    <div class="album-dots" id="albumDots">
+                        ${decryptedImages.map((_, i) => `<button class="album-dot ${i === 0 ? "active" : ""}" data-dot="${i}"></button>`).join("")}
+                    </div>
+                `
+            ) : ""}
+        </div>
+    ` : "";
 
     viewContainer.innerHTML = `
         <header class="gift-header">
@@ -336,28 +385,7 @@ async function renderGiftCard(card, typeInfo) {
 
         ${messageText ? `<div class="message-box"><p>${escapeHtml(messageText)}</p></div>` : ""}
 
-        ${decryptedImages.length > 0 ? `
-            <h3 class="section-title"><i class="fa-solid fa-images"></i> ألبوم الصور (${decryptedImages.length})</h3>
-            <div class="album-container" id="albumContainer">
-                <div class="album-viewport" id="albumViewport">
-                    <div class="album-counter" id="albumCounter">1 / ${decryptedImages.length}</div>
-                    ${decryptedImages.map((url, i) => `
-                        <div class="album-slide ${i === 0 ? "active" : ""}" data-slide="${i}">
-                            <img src="${url}" alt="صورة ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" draggable="false">
-                        </div>
-                    `).join("")}
-                    ${decryptedImages.length > 1 ? `
-                        <button class="album-nav-btn prev" id="albumPrev"><i class="fa-solid fa-chevron-right"></i></button>
-                        <button class="album-nav-btn next" id="albumNext"><i class="fa-solid fa-chevron-left"></i></button>
-                    ` : ""}
-                </div>
-                ${decryptedImages.length > 1 ? `
-                    <div class="album-dots" id="albumDots">
-                        ${decryptedImages.map((_, i) => `<button class="album-dot ${i === 0 ? "active" : ""}" data-dot="${i}"></button>`).join("")}
-                    </div>
-                ` : ""}
-            </div>
-        ` : ""}
+        ${albumHtml}
 
         ${videoUrl ? `
             <h3 class="section-title"><i class="fa-solid fa-video"></i> الفيديو</h3>
@@ -572,7 +600,12 @@ async function renderBusinessCard(card, typeInfo) {
 
     viewContainer.innerHTML = `
         <div class="biz-card">
-            ${logoUrl ? `<img src="${logoUrl}" class="biz-logo" alt="Logo">` : `<div class="biz-logo-placeholder"><i class="fa-solid fa-user"></i></div>`}
+            <div class="biz-logo-wrapper">
+                ${logoUrl
+                    ? `<img src="${logoUrl}" class="biz-logo" alt="${escapeHtml(card.name) || "Logo"}">`
+                    : `<div class="biz-logo-placeholder"><i class="fa-solid fa-user"></i></div>`
+                }
+            </div>
             <h1 class="biz-name">${escapeHtml(card.name) || "بطاقة عمل"}</h1>
             ${card.jobTitle ? `<p class="biz-job">${escapeHtml(card.jobTitle)}</p>` : ""}
             ${card.company ? `<p class="biz-company">${escapeHtml(card.company)}</p>` : ""}
@@ -622,7 +655,7 @@ async function renderPetCard(card, typeInfo) {
     ` : "";
 
     const vaccinationHtml = card.petVaccinations ? `
-        <div class="pet-info-item" style="margin-top: 15px;">
+        <div class="pet-info-item" style="margin-top: 15px; text-align: right;">
             <div class="pet-info-label">💉 آخر تطعيم</div>
             <div class="pet-info-value">${formatDate(card.petVaccinations)}</div>
         </div>
@@ -631,13 +664,13 @@ async function renderPetCard(card, typeInfo) {
     const phoneClean = cleanPhone(card.petOwnerPhone || "");
     const contactHtml = card.petOwnerPhone ? `
         <div class="pet-contact-box">
-            <div class="title">📞 إذا وجدت هذا الحيوان، اتصل بمالكه</div>
+            <div class="title"><i class="fa-solid fa-phone"></i> إذا وجدت هذا الحيوان، اتصل بمالكه</div>
             ${card.petOwnerName ? `<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px;">${escapeHtml(card.petOwnerName)}</div>` : ""}
             <a href="tel:${phoneClean}" class="pet-contact-btn">
                 <i class="fa-solid fa-phone"></i> ${escapeHtml(card.petOwnerPhone)}
             </a>
             ${card.petAddress ? `
-                <a href="https://maps.google.com/?q=${encodeURIComponent(card.petAddress)}" target="_blank" class="pet-contact-btn" style="background: #0f172a; color: #fff;">
+                <a href="https://maps.google.com/?q=${encodeURIComponent(card.petAddress)}" target="_blank" class="pet-contact-btn" style="background: #0f172a; color: #fff; border: 1px solid var(--border-color);">
                     <i class="fa-solid fa-location-dot"></i> ${escapeHtml(card.petAddress)}
                 </a>
             ` : ""}
@@ -646,10 +679,12 @@ async function renderPetCard(card, typeInfo) {
 
     viewContainer.innerHTML = `
         <div class="pet-card">
-            ${petPhoto
-                ? `<img src="${petPhoto}" class="pet-photo" alt="${escapeHtml(card.petName)}">`
-                : `<div class="pet-photo-placeholder">${petEmoji}</div>`
-            }
+            <div class="pet-photo-wrapper">
+                ${petPhoto
+                    ? `<img src="${petPhoto}" class="pet-photo" alt="${escapeHtml(card.petName) || "Pet"}">`
+                    : `<div class="pet-photo-placeholder">${petEmoji}</div>`
+                }
+            </div>
             <h1 class="pet-name">${escapeHtml(card.petName) || "حيوان أليف"}</h1>
             <p class="pet-type">${petEmoji} ${escapeHtml(card.petType) || "حيوان"}</p>
 
@@ -662,7 +697,7 @@ async function renderPetCard(card, typeInfo) {
 }
 
 // ============================================================
-// 🖼️ الألبوم
+// 🖼️ الألبوم — مع دعم المصغرات وشريط التقدم
 // ============================================================
 function setupAlbum() {
     const viewport = document.getElementById("albumViewport");
@@ -670,38 +705,84 @@ function setupAlbum() {
 
     const slides = viewport.querySelectorAll(".album-slide");
     const dots = document.querySelectorAll(".album-dot");
+    const thumbs = document.querySelectorAll(".album-thumb");
+    const progressFill = document.getElementById("albumProgressFill");
+    const progressLabel = document.getElementById("albumProgressLabel");
     const counter = document.getElementById("albumCounter");
     const prevBtn = document.getElementById("albumPrev");
     const nextBtn = document.getElementById("albumNext");
+    const expandBtn = document.getElementById("albumExpandBtn");
 
     let currentSlide = 0;
     let touchStartX = 0, touchEndX = 0, isDragging = false;
     const totalSlides = slides.length;
     if (totalSlides === 0) return;
 
+    function updateCounter(index) {
+        if (!counter) return;
+        const span = counter.querySelector("span");
+        if (span) span.textContent = `${index + 1} / ${totalSlides}`;
+    }
+
     function goToSlide(index) {
         if (index < 0) index = 0;
         if (index >= totalSlides) index = totalSlides - 1;
+
         slides.forEach((s, i) => s.classList.toggle("active", i === index));
         dots.forEach((d, i) => d.classList.toggle("active", i === index));
-        if (counter) counter.textContent = `${index + 1} / ${totalSlides}`;
+        thumbs.forEach((t, i) => t.classList.toggle("active", i === index));
+
+        updateCounter(index);
         if (prevBtn) prevBtn.disabled = index === 0;
         if (nextBtn) nextBtn.disabled = index === totalSlides - 1;
+
+        // ✨ شريط التقدم
+        if (progressFill) progressFill.style.width = ((index + 1) / totalSlides * 100) + "%";
+        if (progressLabel) progressLabel.textContent = `${index + 1} / ${totalSlides}`;
+
+        // ✨ Auto-scroll المصغرة النشطة إلى المنتصف
+        const activeThumb = document.querySelector(`.album-thumb[data-thumb="${index}"]`);
+        if (activeThumb && activeThumb.scrollIntoView) {
+            activeThumb.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+                inline: "center"
+            });
+        }
+
         currentSlide = index;
     }
 
     prevBtn?.addEventListener("click", () => goToSlide(currentSlide - 1));
     nextBtn?.addEventListener("click", () => goToSlide(currentSlide + 1));
-    dots.forEach(dot => dot.addEventListener("click", () => goToSlide(parseInt(dot.dataset.dot))));
 
+    dots.forEach(dot => dot.addEventListener("click", () => goToSlide(parseInt(dot.dataset.dot))));
+    thumbs.forEach(thumb => thumb.addEventListener("click", () => goToSlide(parseInt(thumb.dataset.thumb))));
+
+    // ✨ زر التوسيع (يفتح Lightbox للصورة الحالية)
+    expandBtn?.addEventListener("click", () => {
+        openLightboxFromAlbum(currentSlide);
+    });
+
+    // ✨ دعم لوحة المفاتيح
+    document.addEventListener("keydown", (e) => {
+        if (lightbox?.classList.contains("active")) return;
+        if (!document.getElementById("albumViewport")) return;
+        if (e.key === "ArrowRight") goToSlide(currentSlide - 1);
+        if (e.key === "ArrowLeft") goToSlide(currentSlide + 1);
+    });
+
+    // ✨ دعم اللمس
     viewport.addEventListener("touchstart", (e) => {
         touchStartX = e.changedTouches[0].screenX;
         isDragging = true;
     }, { passive: true });
+
     viewport.addEventListener("touchmove", (e) => {
         if (!isDragging) return;
         touchEndX = e.changedTouches[0].screenX;
     }, { passive: true });
+
     viewport.addEventListener("touchend", () => {
         if (!isDragging) return;
         const d = touchStartX - touchEndX;
@@ -712,6 +793,7 @@ function setupAlbum() {
         isDragging = false;
     });
 
+    // ✨ دعم الماوس
     let mouseStartX = 0, isMouseDown = false;
     viewport.addEventListener("mousedown", (e) => { mouseStartX = e.screenX; isMouseDown = true; });
     viewport.addEventListener("mouseup", (e) => {
@@ -725,12 +807,7 @@ function setupAlbum() {
     });
     viewport.addEventListener("mouseleave", () => { isMouseDown = false; });
 
-    document.addEventListener("keydown", (e) => {
-        if (lightbox?.classList.contains("active")) return;
-        if (e.key === "ArrowRight") goToSlide(currentSlide - 1);
-        if (e.key === "ArrowLeft") goToSlide(currentSlide + 1);
-    });
-
+    // ✨ فتح Lightbox عند النقر على الصورة
     slides.forEach((slide, idx) => {
         const img = slide.querySelector("img");
         img?.addEventListener("click", () => {
@@ -767,11 +844,13 @@ function openLightbox() {
     lightboxImg.src = currentImages[currentImageIndex];
     lightboxCounter.textContent = `${currentImageIndex + 1} / ${currentImages.length}`;
     lightbox.classList.add("active");
+    lightbox.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
 }
 
 function closeLightbox() {
     lightbox.classList.remove("active");
+    lightbox.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
 }
 
