@@ -3,377 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="لوحة تحكم المطور | Tech Luxury - إدارة كروت NFC">
     <title>لوحة المطور | إدارة كروت ذكرى</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
 
-    <style>
-        :root {
-            --bg-dark: #090d16;
-            --card-bg: #141b2d;
-            --accent-gold: #e2b714;
-            --accent-blue: #3b82f6;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border-color: #2e374a;
-            --danger: #ef4444;
-            --success: #10b981;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Tajawal', sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1300px;
-            margin: 0 auto;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        h1 {
-            font-size: 1.6rem;
-            color: var(--accent-gold);
-        }
-
-        .btn-create {
-            background: linear-gradient(135deg, #e2b714, #d97706);
-            color: #000;
-            border: none;
-            padding: 12px 24px;
-            font-weight: 700;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-create:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-        }
-
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-        }
-
-        .stat-card h3 {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        .stat-card p {
-            font-size: 1.8rem;
-            font-weight: 700;
-        }
-
-        /* ✅ شريط البحث */
-        .search-section {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 20px;
-        }
-
-        .search-section h3 {
-            color: var(--accent-gold);
-            font-size: 0.95rem;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .search-bar {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .search-bar input {
-            flex: 1;
-            min-width: 250px;
-            padding: 12px 16px;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: #fff;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .search-bar input:focus {
-            border-color: var(--accent-gold);
-        }
-
-        .search-bar input::placeholder {
-            color: #64748b;
-        }
-
-        .search-bar .filter-btns {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .filter-btn {
-            background: #0f172a;
-            color: var(--text-muted);
-            border: 1px solid var(--border-color);
-            padding: 8px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .filter-btn:hover {
-            border-color: var(--accent-gold);
-            color: var(--accent-gold);
-        }
-
-        .filter-btn.active {
-            background: rgba(226, 183, 20, 0.15);
-            border-color: var(--accent-gold);
-            color: var(--accent-gold);
-        }
-
-        .search-results-info {
-            margin-top: 10px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        /* Table Section */
-        .table-container {
-            background: var(--card-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: right;
-            font-size: 0.9rem;
-        }
-
-        th, td {
-            padding: 12px 10px;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: middle;
-        }
-
-        th {
-            background-color: rgba(255, 255, 255, 0.03);
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        tr:hover {
-            background-color: rgba(255, 255, 255, 0.02);
-        }
-
-        tr.highlighted {
-            background-color: rgba(226, 183, 20, 0.08);
-            border-right: 3px solid var(--accent-gold);
-        }
-
-        /* Status Badge */
-        .badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            display: inline-block;
-        }
-        .badge-available { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-        .badge-active { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-        .badge-disabled { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-        .action-btns {
-            display: flex;
-            gap: 6px;
-            flex-direction: column;
-        }
-
-        .btn-sm {
-            padding: 6px 10px;
-            font-size: 0.78rem;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            transition: 0.2s;
-            white-space: nowrap;
-        }
-
-        .btn-copy { background: #334155; color: #fff; }
-        .btn-copy:hover { background: #475569; }
-
-        .btn-reset-type { background: #dc2626; color: #fff; }
-        .btn-reset-type:hover { background: #b91c1c; }
-
-        select.status-select {
-            background: #0f172a;
-            color: #fff;
-            border: 1px solid var(--border-color);
-            padding: 4px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        /* اسم العميل */
-        .customer-name {
-            font-weight: 600;
-            color: var(--text-main);
-            font-size: 0.9rem;
-        }
-
-        .customer-email {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            word-break: break-all;
-        }
-
-        .no-name {
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 0.85rem;
-        }
-
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-muted);
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            color: var(--border-color);
-            margin-bottom: 15px;
-            display: block;
-        }
-
-        @media (max-width: 768px) {
-            h1 { font-size: 1.3rem; }
-            .search-bar input { min-width: 100%; }
-        }
-    </style>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
 </head>
-<body>
+<body class="admin-page">
 
-    <div class="container">
-        <header>
-            <h1><i class="fa-solid fa-code"></i> لوحة تحكم المطور</h1>
-            <button id="btnCreateCard" class="btn-create">
-                <i class="fa-solid fa-plus"></i> إنشاء كرت NFC جديد
-            </button>
-        </header>
+    <!-- =========================
+         Top Navbar
+    ========================== -->
+    <header class="admin-navbar">
+        <div class="admin-nav-container">
 
-        <!-- احصائيات سريعة -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>إجمالي الكروت</h3>
-                <p id="totalCards">0</p>
+            <a href="../index.html" class="brand-logo">
+                <i class="fa-solid fa-gem"></i>
+                <span>Tech Luxury</span>
+            </a>
+
+            <div class="admin-badge-top">
+                <i class="fa-solid fa-code"></i>
+                <span>لوحة المطور</span>
             </div>
-            <div class="stat-card">
-                <h3>الكروت المتاحة</h3>
-                <p id="availableCards" style="color: #60a5fa;">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>الكروت المفعلة</h3>
-                <p id="activeCards" style="color: #34d399;">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>الكروت المعطلة</h3>
-                <p id="disabledCards" style="color: #f87171;">0</p>
-            </div>
+
         </div>
+    </header>
 
-        <!-- ✅ شريط البحث -->
-        <div class="search-section">
-            <h3><i class="fa-solid fa-magnifying-glass"></i> البحث والتصفية</h3>
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="ابحث برمز الكرت أو اسم العميل أو البريد الإلكتروني...">
-                <div class="filter-btns">
-                    <button class="filter-btn active" data-filter="all">الكل</button>
-                    <button class="filter-btn" data-filter="available">متاح</button>
-                    <button class="filter-btn" data-filter="active">مفعل</button>
-                    <button class="filter-btn" data-filter="disabled">معطل</button>
-                    <button class="filter-btn" data-filter="protected">🔒 محمي</button>
-                    <button class="filter-btn" data-filter="public">🌐 عام</button>
+    <!-- =========================
+         Main Content
+    ========================== -->
+    <main class="admin-main">
+        <div class="container">
+
+            <!-- Page Header -->
+            <section class="admin-header-section">
+                <div class="admin-header-content">
+                    <h1>
+                        <i class="fa-solid fa-gauge-high"></i>
+                        لوحة تحكم المطور
+                    </h1>
+                    <p>إدارة كروت NFC، تفعيلها، وتتبع حالتها.</p>
                 </div>
-            </div>
-            <div class="search-results-info" id="searchInfo"></div>
-        </div>
 
-        <!-- جدول الكروت -->
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>رمز الكرت</th>
-                        <th>العميل</th>
-                        <th>النوع / الحالة</th>
-                        <th>الحالة (Status)</th>
-                        <th>تاريخ الإنشاء</th>
-                        <th>الإجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="cardsTableBody">
-                    <tr>
-                        <td colspan="6" class="empty-state">
-                            <i class="fa-solid fa-spinner fa-spin"></i>
-                            جاري تحميل الكروت...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                <button id="btnCreateCard" class="btn-create">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>إنشاء كرت NFC جديد</span>
+                </button>
+            </section>
+
+            <!-- Stats Grid -->
+            <section class="stats-grid">
+                <div class="stat-card stat-total">
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>إجمالي الكروت</h3>
+                        <p id="totalCards">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card stat-available">
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>الكروت المتاحة</h3>
+                        <p id="availableCards">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card stat-active">
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>الكروت المفعلة</h3>
+                        <p id="activeCards">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card stat-disabled">
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>الكروت المعطلة</h3>
+                        <p id="disabledCards">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search & Filter -->
+            <section class="search-section">
+                <h3 class="search-title">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    البحث والتصفية
+                </h3>
+
+                <div class="search-bar">
+                    <div class="search-input-wrap">
+                        <i class="fa-solid fa-search search-input-icon"></i>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            placeholder="ابحث برمز الكرت أو اسم العميل أو البريد الإلكتروني..."
+                            autocomplete="off"
+                            spellcheck="false">
+                    </div>
+
+                    <div class="filter-btns" role="tablist">
+                        <button class="filter-btn active" data-filter="all" role="tab">
+                            <i class="fa-solid fa-list"></i>
+                            الكل
+                        </button>
+                        <button class="filter-btn" data-filter="available" role="tab">
+                            <i class="fa-solid fa-inbox"></i>
+                            متاح
+                        </button>
+                        <button class="filter-btn" data-filter="active" role="tab">
+                            <i class="fa-solid fa-circle-check"></i>
+                            مفعل
+                        </button>
+                        <button class="filter-btn" data-filter="disabled" role="tab">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                            معطل
+                        </button>
+                        <button class="filter-btn" data-filter="protected" role="tab">
+                            <i class="fa-solid fa-lock"></i>
+                            محمي
+                        </button>
+                        <button class="filter-btn" data-filter="public" role="tab">
+                            <i class="fa-solid fa-globe"></i>
+                            عام
+                        </button>
+                    </div>
+                </div>
+
+                <div class="search-results-info" id="searchInfo"></div>
+            </section>
+
+            <!-- Table -->
+            <section class="table-container">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>رمز الكرت</th>
+                                <th>العميل</th>
+                                <th>النوع / الحالة</th>
+                                <th>الحالة (Status)</th>
+                                <th>تاريخ الإنشاء</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cardsTableBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                    <span>جاري تحميل الكروت...</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
         </div>
-    </div>
+    </main>
 
     <script type="module" src="../js/admin.js"></script>
 
