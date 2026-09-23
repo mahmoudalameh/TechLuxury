@@ -33,7 +33,7 @@ const db = getFirestore(app);
 
 // ===== Cloudinary =====
 const CLOUDINARY_CLOUD_NAME = "ypwbnpyd";
-const CLOUDINARY_UPLOAD_PRESET = "ml_default";
+const CLOUDINARY_UPLOAD_PRESET = "memories_secure";
 
 function uploadEncryptedToCloudinary(encryptedBlob, onProgress = null) {
     return new Promise((resolve, reject) => {
