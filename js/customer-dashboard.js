@@ -190,6 +190,54 @@ function toArray(value) {
     return [];
 }
 
+
+// ===== ✅ التحقق من الملفات قبل الرفع =====
+function validateFile(file, type) {
+    const limits = {
+        image: {
+            maxSize: 5 * 1024 * 1024,           // 5 MB
+            types: ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+        },
+        video: {
+            maxSize: 100 * 1024 * 1024,         // 100 MB
+            types: ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"]
+        },
+        audio: {
+            maxSize: 10 * 1024 * 1024,          // 10 MB
+            types: ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/mp4"]
+        }
+    };
+
+    const config = limits[type];
+    if (!config) throw new Error("نوع الملف غير معروف");
+
+    // تحقق من نوع الملف (MIME)
+    if (!config.types.includes(file.type)) {
+        throw new Error(`نوع الملف غير مدعوم: ${file.type}\nالمسموح: ${config.types.join(", ")}`);
+    }
+
+    // تحقق من الحجم
+    if (file.size > config.maxSize) {
+        const maxMB = (config.maxSize / 1024 / 1024).toFixed(0);
+        const curMB = (file.size / 1024 / 1024).toFixed(2);
+        throw new Error(`الملف كبير جداً (${curMB} MB) — الحد ${maxMB} MB`);
+    }
+
+    // تحقق من امتداد الملف (احتياطي)
+    const ext = file.name.split(".").pop().toLowerCase();
+    const allowedExts = {
+        image: ["jpg", "jpeg", "png", "webp"],
+        video: ["mp4", "webm", "mov", "avi"],
+        audio: ["mp3", "wav", "ogg", "m4a"]
+    };
+    if (!allowedExts[type].includes(ext)) {
+        throw new Error(`امتداد الملف غير مدعوم: .${ext}`);
+    }
+
+    return true;
+}
+
+
 // ===== ✅ دالة escapeHtml (لمنع XSS) =====
 function escapeHtml(text) {
     if (text === null || text === undefined) return "";
@@ -1079,33 +1127,78 @@ document.getElementById("btnAddEvent")?.addEventListener("click", () => {
 
 // ===== رفع الملفات =====
 document.getElementById("giftImages")?.addEventListener("change", (e) => {
-    giftNewImages = Array.from(e.target.files);
-    document.getElementById("giftImagesStatus").textContent =
-        giftNewImages.length ? `📎 ${giftNewImages.length} صورة جاهزة` : "";
+    try {
+        const files = Array.from(e.target.files);
+        for (const file of files) validateFile(file, "image");
+        giftNewImages = files;
+        document.getElementById("giftImagesStatus").textContent =
+            `📎 ${files.length} صورة جاهزة`;
+    } catch (err) {
+        alert("❌ " + err.message);
+        e.target.value = "";
+        giftNewImages = [];
+        document.getElementById("giftImagesStatus").textContent = "";
+    }
 });
 
 document.getElementById("giftVideo")?.addEventListener("change", (e) => {
-    giftNewVideo = e.target.files[0] || null;
-    document.getElementById("giftVideoStatus").textContent =
-        giftNewVideo ? "📎 فيديو جديد جاهز" : "";
+    try {
+        const file = e.target.files[0];
+        if (file) validateFile(file, "video");
+        giftNewVideo = file || null;
+        document.getElementById("giftVideoStatus").textContent =
+            file ? "📎 فيديو جديد جاهز" : "";
+    } catch (err) {
+        alert("❌ " + err.message);
+        e.target.value = "";
+        giftNewVideo = null;
+        document.getElementById("giftVideoStatus").textContent = "";
+    }
 });
 
 document.getElementById("bizLogo")?.addEventListener("change", (e) => {
-    bizNewLogo = e.target.files[0] || null;
-    document.getElementById("bizLogoStatus").textContent =
-        bizNewLogo ? "📎 شعار جديد جاهز" : "";
+    try {
+        const file = e.target.files[0];
+        if (file) validateFile(file, "image");
+        bizNewLogo = file || null;
+        document.getElementById("bizLogoStatus").textContent =
+            file ? "📎 شعار جديد جاهز" : "";
+    } catch (err) {
+        alert("❌ " + err.message);
+        e.target.value = "";
+        bizNewLogo = null;
+        document.getElementById("bizLogoStatus").textContent = "";
+    }
 });
 
 document.getElementById("petPhoto")?.addEventListener("change", (e) => {
-    petNewPhoto = e.target.files[0] || null;
-    document.getElementById("petPhotoStatus").textContent =
-        petNewPhoto ? "📎 صورة جديدة جاهزة" : "";
+    try {
+        const file = e.target.files[0];
+        if (file) validateFile(file, "image");
+        petNewPhoto = file || null;
+        document.getElementById("petPhotoStatus").textContent =
+            file ? "📎 صورة جديدة جاهزة" : "";
+    } catch (err) {
+        alert("❌ " + err.message);
+        e.target.value = "";
+        petNewPhoto = null;
+        document.getElementById("petPhotoStatus").textContent = "";
+    }
 });
 
 document.getElementById("editBgMusic")?.addEventListener("change", (e) => {
-    newBgMusicFile = e.target.files[0] || null;
-    document.getElementById("bgMusicStatus").textContent =
-        newBgMusicFile ? "📎 موسيقى جديدة جاهزة" : "";
+    try {
+        const file = e.target.files[0];
+        if (file) validateFile(file, "audio");
+        newBgMusicFile = file || null;
+        document.getElementById("bgMusicStatus").textContent =
+            file ? "📎 موسيقى جديدة جاهزة" : "";
+    } catch (err) {
+        alert("❌ " + err.message);
+        e.target.value = "";
+        newBgMusicFile = null;
+        document.getElementById("bgMusicStatus").textContent = "";
+    }
 });
 
 // ===== إغلاق النافذة =====
